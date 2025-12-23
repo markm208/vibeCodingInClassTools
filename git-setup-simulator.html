@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git Setup Simulator</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-panel: #161b22;
+            --bg-input: #0d1117;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-purple: #a371f7;
+            --accent-orange: #d29922;
+            --accent-red: #f85149;
+            --accent-pink: #db61a2;
+            --success-bg: rgba(63, 185, 80, 0.15);
+            --warning-bg: rgba(210, 153, 34, 0.15);
+            --error-bg: rgba(248, 81, 73, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+            gap: 1px;
+            background: var(--border);
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            background: var(--bg-panel);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header h1::before {
+            content: '';
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--accent-orange), var(--accent-green));
+            border-radius: 6px;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .header-status.ready {
+            border-color: var(--accent-green);
+            background: var(--success-bg);
+            color: var(--accent-green);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        /* Two Column Layout */
+        .columns-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            min-height: 0;
+        }
+
+        .column {
+            background: var(--bg-panel);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .column-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .column-header .icon {
+            font-size: 1.5rem;
+        }
+
+        .column-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .column-header.local {
+            background: linear-gradient(90deg, rgba(88, 166, 255, 0.1), transparent);
+        }
+
+        .column-header.github {
+            background: linear-gradient(90deg, rgba(163, 113, 247, 0.1), transparent);
+        }
+
+        .column-body {
+            flex: 1;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        /* Repository Visualization */
+        .repo-placeholder {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            width: 100%;
+            max-width: 280px;
+        }
+
+        .repo-placeholder .icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.5;
+        }
+
+        .repo-card {
+            background: var(--bg-input);
+            border: 2px solid var(--accent-green);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            width: 100%;
+            max-width: 280px;
+            animation: repoAppear 0.5s ease;
+        }
+
+        @keyframes repoAppear {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .repo-card .repo-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .repo-card .repo-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .repo-card .repo-status {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .repo-card .repo-status .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+        }
+
+        .repo-card.forked {
+            border-color: var(--accent-purple);
+        }
+
+        .repo-card.forked .dot {
+            background: var(--accent-purple);
+        }
+
+        .repo-card.origin {
+            border-color: var(--accent-orange);
+            opacity: 0.7;
+        }
+
+        .repo-card.origin .dot {
+            background: var(--accent-orange);
+        }
+
+        /* Connection Line */
+        .connection-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 10;
+        }
+
+        .connection-line {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-panel);
+            border: 1px solid var(--accent-green);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: var(--accent-green);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(63, 185, 80, 0);
+            }
+        }
+
+        /* Actions Panel */
+        .actions-panel {
+            padding: 1rem;
+            background: var(--bg-panel);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .actions-panel h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover:not(:disabled) {
+            border-color: var(--accent-blue);
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .action-btn .icon {
+            font-size: 1.5rem;
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            border-color: transparent;
+        }
+
+        .action-btn.primary:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .action-btn.success {
+            border-color: var(--accent-green);
+            background: var(--success-bg);
+        }
+
+        .action-btn.local-action {
+            border-color: var(--accent-blue);
+        }
+
+        .action-btn.github-action {
+            border-color: var(--accent-purple);
+        }
+
+        /* Sidebars */
+        .sidebar-left,
+        .sidebar-right {
+            background: var(--bg-panel);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .sidebar-section {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .sidebar-section h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        /* Progress */
+        .progress-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .progress-bar-wrapper {
+            background: var(--bg-input);
+            border-radius: 999px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-orange), var(--accent-green));
+            border-radius: 999px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Checklist */
+        .checklist {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+        }
+
+        .checklist-item.completed {
+            color: var(--accent-green);
+            background: var(--success-bg);
+        }
+
+        .checklist-item.current {
+            color: var(--accent-blue);
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .check-icon {
+            width: 18px;
+            height: 18px;
+            border: 2px solid currentColor;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+
+        .checklist-item.completed .check-icon {
+            background: var(--accent-green);
+            border-color: var(--accent-green);
+            color: var(--bg-dark);
+        }
+
+        /* Scenario Selection */
+        .scenario-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .scenario-card {
+            padding: 0.75rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .scenario-card:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .scenario-card.active {
+            border-color: var(--accent-green);
+            background: var(--success-bg);
+        }
+
+        .scenario-card .title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .scenario-card .desc {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Activity Log */
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            min-height: 0;
+        }
+
+        .log-container h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            position: sticky;
+            top: 0;
+            background: var(--bg-panel);
+            padding: 0.25rem 0;
+        }
+
+        .log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .log-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: var(--bg-input);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .log-icon {
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .log-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .log-message {
+            color: var(--text-primary);
+        }
+
+        .log-detail {
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            grid-column: 1 / -1;
+            background: var(--bg-panel);
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border);
+        }
+
+        .status-left, .status-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.green {
+            background: var(--accent-green);
+        }
+
+        .status-dot.orange {
+            background: var(--accent-orange);
+        }
+
+        .status-dot.red {
+            background: var(--accent-red);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            max-width: 500px;
+            width: 90%;
+            animation: scaleIn 0.2s ease;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal h2 {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .modal p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            outline: none;
+        }
+
+        .modal-input:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .modal-btn.cancel {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .modal-btn.confirm {
+            background: var(--accent-blue);
+            border: 1px solid var(--accent-blue);
+            color: white;
+        }
+
+        .modal-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 4rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.875rem;
+            z-index: 1001;
+            animation: toastIn 0.3s ease;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .toast.success {
+            border-color: var(--accent-green);
+        }
+
+        .toast.error {
+            border-color: var(--accent-red);
+        }
+
+        .toast.info {
+            border-color: var(--accent-blue);
+        }
+
+        /* Celebration */
+        .celebration {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1002;
+        }
+
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            animation: confettiFall 3s ease-out forwards;
+        }
+
+        @keyframes confettiFall {
+            0% {
+                transform: translateY(-100vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1100px) {
+            .app-container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar-left,
+            .sidebar-right {
+                display: none;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .columns-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Workflow steps for "Start Fresh" scenario
+        const FRESH_STEPS = [
+            { id: 'git_init', label: 'Initialize local repository', icon: '📁' },
+            { id: 'create_remote', label: 'Create GitHub repository', icon: '☁️' },
+            { id: 'add_remote', label: 'Connect local to remote', icon: '🔗' },
+            { id: 'push', label: 'Push to GitHub', icon: '⬆️' },
+        ];
+
+        // Workflow steps for "Fork and Clone" scenario (contributor without access)
+        const FORK_STEPS = [
+            { id: 'fork', label: 'Fork repository on GitHub', icon: '🍴' },
+            { id: 'clone', label: 'Clone to local machine', icon: '⬇️' },
+        ];
+
+        // Workflow steps for "Direct Clone" scenario (team member with access)
+        const CLONE_STEPS = [
+            { id: 'clone_direct', label: 'Clone to local machine', icon: '⬇️' },
+        ];
+
+        function App() {
+            const [scenario, setScenario] = useState(null); // 'fresh' or 'join'
+            const [localRepo, setLocalRepo] = useState(null);
+            const [githubRepo, setGithubRepo] = useState(null);
+            const [originRepo, setOriginRepo] = useState(null); // For fork scenario
+            const [isConnected, setIsConnected] = useState(false);
+            const [completedSteps, setCompletedSteps] = useState([]);
+            const [logs, setLogs] = useState([]);
+            const [modal, setModal] = useState(null);
+            const [toast, setToast] = useState(null);
+            const [showCelebration, setShowCelebration] = useState(false);
+
+            const currentSteps = scenario === 'fresh' ? FRESH_STEPS : scenario === 'fork' ? FORK_STEPS : scenario === 'clone' ? CLONE_STEPS : [];
+            const progress = currentSteps.length > 0 ? (completedSteps.length / currentSteps.length) * 100 : 0;
+            const isComplete = currentSteps.length > 0 && completedSteps.length === currentSteps.length;
+
+            // Add log entry
+            const addLog = (icon, message, detail) => {
+                setLogs(prev => [{
+                    id: Date.now(),
+                    icon,
+                    message,
+                    detail,
+                    time: new Date().toLocaleTimeString()
+                }, ...prev]);
+            };
+
+            // Show toast
+            const showToast = (message, type = 'info') => {
+                setToast({ message, type });
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            // Complete a step
+            const completeStep = (stepId) => {
+                if (!completedSteps.includes(stepId)) {
+                    setCompletedSteps(prev => [...prev, stepId]);
+                }
+            };
+
+            // Reset workflow
+            const resetWorkflow = () => {
+                setScenario(null);
+                setLocalRepo(null);
+                setGithubRepo(null);
+                setOriginRepo(null);
+                setIsConnected(false);
+                setCompletedSteps([]);
+                setLogs([]);
+                showToast('Workflow reset!', 'info');
+            };
+
+            // Choose scenario
+            const chooseScenario = (type) => {
+                if (scenario) return;
+                
+                if (type === 'fresh') {
+                    setModal({
+                        title: '🆕 Start a New Project',
+                        message: 'WHY: When starting a brand new project, you create a repository on your local machine first. Then you create a matching repository on GitHub and connect them. This lets you back up your work and collaborate with others.\n\nHOW: You will use "git init" to create a local repo, then create a GitHub repo, link them with "git remote add", and push your code up.',
+                        input: false,
+                        hideCancel: true,
+                        confirmText: 'Start Fresh Project',
+                        onConfirm: () => {
+                            setScenario('fresh');
+                            addLog('🆕', 'Starting fresh project workflow', 'Create local repo → Push to GitHub');
+                            setModal(null);
+                        }
+                    });
+                } else if (type === 'join') {
+                    setModal({
+                        title: '🤝 Join an Existing Project',
+                        message: 'There are two ways to join an existing project:\n\n1. CLONE DIRECTLY - If you are a team member with push access to the repository, you can clone it directly.\n\n2. FORK FIRST - If you are an outside contributor (like on open source projects), you need to fork the repository first to create your own copy, then clone your fork.',
+                        input: false,
+                        hideCancel: true,
+                        confirmText: 'I Have Direct Access',
+                        cancelText: 'I Need to Fork',
+                        showBothButtons: true,
+                        onConfirm: () => {
+                            setScenario('clone');
+                            setGithubRepo({ name: 'team-project', owner: 'my-team' });
+                            addLog('🤝', 'Joining as team member', 'Clone directly from team repository');
+                            setModal(null);
+                        },
+                        onCancel: () => {
+                            setScenario('fork');
+                            setOriginRepo({ name: 'team-project', owner: 'original-author' });
+                            addLog('🤝', 'Joining as contributor', 'Fork on GitHub → Clone locally');
+                            setModal(null);
+                        }
+                    });
+                }
+            };
+
+            // Fresh workflow actions
+            const gitInit = () => {
+                setModal({
+                    title: '📁 Initialize Local Repository',
+                    message: 'WHY: "git init" transforms a regular folder into a Git repository. This creates a hidden .git folder that tracks all changes to your files. Without this step, Git does not know to watch your project.\n\nHOW: Navigate to your project folder in the terminal and run "git init". This is always the first step when starting a new project from scratch.',
+                    input: true,
+                    placeholder: 'my-awesome-project',
+                    confirmText: 'Run git init',
+                    onConfirm: (value) => {
+                        if (value && value.trim()) {
+                            const repoName = value.trim().toLowerCase().replace(/\s+/g, '-');
+                            setLocalRepo({ name: repoName });
+                            addLog('📁', `Initialized repository "${repoName}"`, `cd ${repoName} && git init`);
+                            completeStep('git_init');
+                            showToast('Local repository created!', 'success');
+                        }
+                        setModal(null);
+                    }
+                });
+            };
+
+            const createGitHubRepo = () => {
+                setModal({
+                    title: '☁️ Create GitHub Repository',
+                    message: 'WHY: A GitHub repository is a cloud-hosted copy of your project. It serves as a backup, enables collaboration, and provides tools like issue tracking and pull requests. Every team project needs a central repository.\n\nHOW: On GitHub, click "New repository", give it the same name as your local project, and create it. Do NOT initialize with a README since you already have local content.',
+                    input: false,
+                    confirmText: 'Create on GitHub',
+                    onConfirm: () => {
+                        setGithubRepo({ name: localRepo.name, owner: 'you' });
+                        addLog('☁️', `Created GitHub repository "${localRepo.name}"`, `github.com/you/${localRepo.name}`);
+                        completeStep('create_remote');
+                        showToast('GitHub repository created!', 'success');
+                        setModal(null);
+                    }
+                });
+            };
+
+            const addRemote = () => {
+                setModal({
+                    title: '🔗 Connect Local to Remote',
+                    message: 'WHY: Your local repository does not automatically know about your GitHub repository. You must tell Git where to push your code by adding a "remote". The default remote is called "origin".\n\nHOW: Run "git remote add origin [URL]" where URL is your GitHub repository address. This creates a link so "git push" knows where to send your code.',
+                    input: false,
+                    confirmText: 'Add Remote Origin',
+                    onConfirm: () => {
+                        setIsConnected(true);
+                        addLog('🔗', 'Connected local to remote', `git remote add origin https://github.com/you/${localRepo.name}.git`);
+                        completeStep('add_remote');
+                        showToast('Repositories connected!', 'success');
+                        setModal(null);
+                    }
+                });
+            };
+
+            const pushToGitHub = () => {
+                setModal({
+                    title: '⬆️ Push to GitHub',
+                    message: 'WHY: Pushing uploads your local commits to GitHub. This backs up your work and makes it available to collaborators. Until you push, your commits only exist on your machine.\n\nHOW: Run "git push -u origin main". The "-u" flag sets up tracking so future pushes only need "git push". Your code is now on GitHub!',
+                    input: false,
+                    confirmText: 'Push Code',
+                    onConfirm: () => {
+                        addLog('⬆️', 'Pushed to GitHub', `git push -u origin main`);
+                        completeStep('push');
+                        showToast('Code pushed to GitHub!', 'success');
+                        setModal(null);
+                        
+                        // Celebration!
+                        setTimeout(() => {
+                            setShowCelebration(true);
+                            setTimeout(() => setShowCelebration(false), 3000);
+                            
+                            setTimeout(() => {
+                                setModal({
+                                    title: '🎉 Ready for Collaboration!',
+                                    message: 'Congratulations! Your project is now set up for team development.\n\nYou have:\n• Created a local Git repository\n• Created a matching GitHub repository\n• Connected them together\n• Pushed your code to the cloud\n\nYour teammates can now clone your repository and start contributing. You are ready to use branches, pull requests, and code reviews!',
+                                    input: false,
+                                    cancelText: 'Keep Exploring',
+                                    confirmText: 'Start Over',
+                                    onConfirm: () => {
+                                        resetWorkflow();
+                                        setModal(null);
+                                    }
+                                });
+                            }, 500);
+                        }, 500);
+                    }
+                });
+            };
+
+            // Join workflow actions
+            const forkRepo = () => {
+                setModal({
+                    title: '🍴 Fork Repository',
+                    message: 'WHY: Forking creates your own copy of someone else\'s repository on GitHub. You cannot push directly to repositories you do not own, but you can push to your fork. Later, you can request the original project merge your changes via a pull request.\n\nHOW: On the original repository page, click the "Fork" button. GitHub creates a copy under your account that you control.',
+                    input: false,
+                    confirmText: 'Fork to My Account',
+                    onConfirm: () => {
+                        setGithubRepo({ name: originRepo.name, owner: 'you', forkedFrom: originRepo.owner });
+                        addLog('🍴', `Forked "${originRepo.owner}/${originRepo.name}"`, `Now at: github.com/you/${originRepo.name}`);
+                        completeStep('fork');
+                        showToast('Repository forked!', 'success');
+                        setModal(null);
+                    }
+                });
+            };
+
+            const cloneRepo = () => {
+                setModal({
+                    title: '⬇️ Clone Repository',
+                    message: 'WHY: Cloning downloads a complete copy of the repository to your local machine. This includes all files, branches, and commit history. It also automatically sets up the "origin" remote pointing to your fork.\n\nHOW: Copy the repository URL from GitHub, then run "git clone [URL]" in your terminal. Git creates a folder with all the project files.',
+                    input: false,
+                    confirmText: 'Clone to Local',
+                    onConfirm: () => {
+                        setLocalRepo({ name: githubRepo.name, clonedFrom: 'github' });
+                        setIsConnected(true);
+                        addLog('⬇️', `Cloned "${githubRepo.name}" to local machine`, `git clone https://github.com/you/${githubRepo.name}.git`);
+                        completeStep('clone');
+                        showToast('Repository cloned!', 'success');
+                        setModal(null);
+                        
+                        // Celebration!
+                        setTimeout(() => {
+                            setShowCelebration(true);
+                            setTimeout(() => setShowCelebration(false), 3000);
+                            
+                            setTimeout(() => {
+                                setModal({
+                                    title: '🎉 Ready for Collaboration!',
+                                    message: 'Congratulations! You are now set up to contribute to this project.\n\nYou have:\n• Forked the repository to your GitHub account\n• Cloned your fork to your local machine\n• Established a connection between local and remote\n\nYou can now create branches, make changes, push to your fork, and open pull requests to contribute back to the original project!',
+                                    input: false,
+                                    cancelText: 'Keep Exploring',
+                                    confirmText: 'Start Over',
+                                    onConfirm: () => {
+                                        resetWorkflow();
+                                        setModal(null);
+                                    }
+                                });
+                            }, 500);
+                        }, 500);
+                    }
+                });
+            };
+
+            const cloneDirectRepo = () => {
+                setModal({
+                    title: '⬇️ Clone Repository',
+                    message: 'WHY: Cloning downloads a complete copy of the repository to your local machine. This includes all files, branches, and commit history. It also automatically sets up the "origin" remote pointing to the team repository.\n\nHOW: Copy the repository URL from GitHub, then run "git clone [URL]" in your terminal. Since you have push access, you can push changes directly to this repository.',
+                    input: false,
+                    confirmText: 'Clone to Local',
+                    onConfirm: () => {
+                        setLocalRepo({ name: githubRepo.name, clonedFrom: 'github' });
+                        setIsConnected(true);
+                        addLog('⬇️', `Cloned "${githubRepo.owner}/${githubRepo.name}" to local machine`, `git clone https://github.com/${githubRepo.owner}/${githubRepo.name}.git`);
+                        completeStep('clone_direct');
+                        showToast('Repository cloned!', 'success');
+                        setModal(null);
+                        
+                        // Celebration!
+                        setTimeout(() => {
+                            setShowCelebration(true);
+                            setTimeout(() => setShowCelebration(false), 3000);
+                            
+                            setTimeout(() => {
+                                setModal({
+                                    title: '🎉 Ready for Collaboration!',
+                                    message: 'Congratulations! You are now set up to work on this project.\n\nYou have:\n• Cloned the team repository to your local machine\n• Established a connection between local and remote\n\nSince you have direct access, you can push changes to the repository. However, most teams still use branches and pull requests for code review. You are ready to start developing!',
+                                    input: false,
+                                    cancelText: 'Keep Exploring',
+                                    confirmText: 'Start Over',
+                                    onConfirm: () => {
+                                        resetWorkflow();
+                                        setModal(null);
+                                    }
+                                });
+                            }, 500);
+                        }, 500);
+                    }
+                });
+            };
+
+            // Determine current step
+            const getCurrentStep = () => {
+                for (let i = 0; i < currentSteps.length; i++) {
+                    if (!completedSteps.includes(currentSteps[i].id)) {
+                        return i;
+                    }
+                }
+                return currentSteps.length;
+            };
+
+            const currentStepIndex = getCurrentStep();
+
+            return (
+                <div className="app-container">
+                    {/* Header */}
+                    <header className="header">
+                        <h1>Git Setup Simulator</h1>
+                        <div className={`header-status ${isComplete ? 'ready' : ''}`}>
+                            {isComplete ? (
+                                <>
+                                    <span>✓</span>
+                                    <span>Ready for collaboration!</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span>⚙️</span>
+                                    <span>{scenario ? 'Setting up...' : 'Choose a scenario'}</span>
+                                </>
+                            )}
+                        </div>
+                    </header>
+
+                    {/* Left Sidebar */}
+                    <aside className="sidebar-left">
+                        {/* Progress */}
+                        <div className="sidebar-section">
+                            <h3>Setup Progress</h3>
+                            <div className="progress-container">
+                                <div className="progress-bar-wrapper">
+                                    <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+                                </div>
+                                <div className="progress-label">
+                                    <span>{completedSteps.length} of {currentSteps.length} steps</span>
+                                    <span>{Math.round(progress)}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Workflow Steps */}
+                        <div className="sidebar-section" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+                            <h3>Setup Steps</h3>
+                            {!scenario ? (
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                                    Choose a scenario to begin
+                                </div>
+                            ) : (
+                                <div className="checklist">
+                                    {currentSteps.map((step, index) => {
+                                        const isCompleted = completedSteps.includes(step.id);
+                                        const isCurrent = index === currentStepIndex && !isCompleted;
+                                        return (
+                                            <div 
+                                                key={step.id} 
+                                                className={`checklist-item ${isCompleted ? 'completed' : ''} ${isCurrent ? 'current' : ''}`}
+                                            >
+                                                <span className="check-icon">
+                                                    {isCompleted ? '✓' : index + 1}
+                                                </span>
+                                                <span>{step.label}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Scenario Info */}
+                        <div className="sidebar-section">
+                            <h3>Current Scenario</h3>
+                            <div className="scenario-cards">
+                                <div 
+                                    className={`scenario-card ${scenario === 'fresh' ? 'active' : ''}`}
+                                    onClick={() => !scenario && chooseScenario('fresh')}
+                                    style={{ cursor: scenario ? 'default' : 'pointer' }}
+                                >
+                                    <div className="title">🆕 Start Fresh</div>
+                                    <div className="desc">Create a new project from scratch</div>
+                                </div>
+                                <div 
+                                    className={`scenario-card ${scenario === 'fork' || scenario === 'clone' ? 'active' : ''}`}
+                                    onClick={() => !scenario && chooseScenario('join')}
+                                    style={{ cursor: scenario ? 'default' : 'pointer' }}
+                                >
+                                    <div className="title">🤝 Join Existing</div>
+                                    <div className="desc">
+                                        {scenario === 'fork' ? '🍴 Fork then clone (contributor)' : 
+                                         scenario === 'clone' ? '⬇️ Clone directly (team member)' : 
+                                         'Fork or clone an existing project'}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* Main Content */}
+                    <main className="main-content">
+                        {/* Two Columns */}
+                        <div className="columns-container">
+                            {/* Local Machine Column */}
+                            <div className="column">
+                                <div className="column-header local">
+                                    <span className="icon">💻</span>
+                                    <h2>My Development Machine</h2>
+                                </div>
+                                <div className="column-body">
+                                    {localRepo ? (
+                                        <div className={`repo-card ${localRepo.clonedFrom ? 'forked' : ''}`}>
+                                            <div className="repo-icon">📁</div>
+                                            <div className="repo-name">{localRepo.name}/</div>
+                                            <div className="repo-status">
+                                                <span className="dot"></span>
+                                                <span>{localRepo.clonedFrom ? 'Cloned from GitHub' : 'Local repository'}</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="repo-placeholder">
+                                            <div className="icon">💻</div>
+                                            <div>No local repository yet</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* GitHub Column */}
+                            <div className="column">
+                                <div className="column-header github">
+                                    <span className="icon">☁️</span>
+                                    <h2>GitHub's Servers</h2>
+                                </div>
+                                <div className="column-body">
+                                    {scenario === 'fork' && originRepo && !githubRepo && (
+                                        <div className="repo-card origin">
+                                            <div className="repo-icon">📦</div>
+                                            <div className="repo-name">{originRepo.owner}/{originRepo.name}</div>
+                                            <div className="repo-status">
+                                                <span className="dot"></span>
+                                                <span>Original repository</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {githubRepo ? (
+                                        <div className={`repo-card ${githubRepo.forkedFrom ? 'forked' : ''}`}>
+                                            <div className="repo-icon">{githubRepo.forkedFrom ? '🍴' : '☁️'}</div>
+                                            <div className="repo-name">{githubRepo.owner}/{githubRepo.name}</div>
+                                            <div className="repo-status">
+                                                <span className="dot"></span>
+                                                <span>{githubRepo.forkedFrom ? `Forked from ${githubRepo.forkedFrom}` : scenario === 'clone' ? 'Team repository' : 'Your repository'}</span>
+                                            </div>
+                                        </div>
+                                    ) : !originRepo && (
+                                        <div className="repo-placeholder">
+                                            <div className="icon">☁️</div>
+                                            <div>No GitHub repository yet</div>
+                                        </div>
+                                    )}
+                                    {scenario === 'fork' && originRepo && githubRepo && (
+                                        <div className="repo-card origin" style={{ marginTop: '0.5rem' }}>
+                                            <div className="repo-icon">📦</div>
+                                            <div className="repo-name">{originRepo.owner}/{originRepo.name}</div>
+                                            <div className="repo-status">
+                                                <span className="dot"></span>
+                                                <span>Original (upstream)</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Connection Indicator */}
+                        {isConnected && (
+                            <div style={{ 
+                                display: 'flex', 
+                                justifyContent: 'center', 
+                                marginTop: '-0.5rem',
+                                marginBottom: '0.5rem'
+                            }}>
+                                <div className="connection-line">
+                                    <span>🔗</span>
+                                    <span>Connected via git remote</span>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Actions Panel */}
+                        <div className="actions-panel">
+                            <h3>Available Actions</h3>
+                            {!scenario ? (
+                                <div className="actions-grid">
+                                    <button 
+                                        className="action-btn primary"
+                                        onClick={() => chooseScenario('fresh')}
+                                    >
+                                        <span className="icon">🆕</span>
+                                        Start Fresh Project
+                                    </button>
+                                    <button 
+                                        className="action-btn primary"
+                                        onClick={() => chooseScenario('join')}
+                                    >
+                                        <span className="icon">🤝</span>
+                                        Join Existing Project
+                                    </button>
+                                </div>
+                            ) : scenario === 'fresh' ? (
+                                <div className="actions-grid">
+                                    <button 
+                                        className={`action-btn local-action ${!localRepo ? 'primary' : 'success'}`}
+                                        onClick={gitInit}
+                                        disabled={!!localRepo}
+                                    >
+                                        <span className="icon">📁</span>
+                                        git init
+                                    </button>
+                                    <button 
+                                        className={`action-btn github-action ${localRepo && !githubRepo ? 'primary' : githubRepo ? 'success' : ''}`}
+                                        onClick={createGitHubRepo}
+                                        disabled={!localRepo || !!githubRepo}
+                                    >
+                                        <span className="icon">☁️</span>
+                                        Create GitHub Repo
+                                    </button>
+                                    <button 
+                                        className={`action-btn ${githubRepo && !isConnected ? 'primary' : isConnected ? 'success' : ''}`}
+                                        onClick={addRemote}
+                                        disabled={!githubRepo || isConnected}
+                                    >
+                                        <span className="icon">🔗</span>
+                                        git remote add
+                                    </button>
+                                    <button 
+                                        className={`action-btn ${isConnected && !completedSteps.includes('push') ? 'primary' : completedSteps.includes('push') ? 'success' : ''}`}
+                                        onClick={pushToGitHub}
+                                        disabled={!isConnected || completedSteps.includes('push')}
+                                    >
+                                        <span className="icon">⬆️</span>
+                                        git push
+                                    </button>
+                                </div>
+                            ) : scenario === 'fork' ? (
+                                <div className="actions-grid">
+                                    <button 
+                                        className={`action-btn github-action ${!githubRepo ? 'primary' : 'success'}`}
+                                        onClick={forkRepo}
+                                        disabled={!!githubRepo}
+                                    >
+                                        <span className="icon">🍴</span>
+                                        Fork Repository
+                                    </button>
+                                    <button 
+                                        className={`action-btn local-action ${githubRepo && !localRepo ? 'primary' : localRepo ? 'success' : ''}`}
+                                        onClick={cloneRepo}
+                                        disabled={!githubRepo || !!localRepo}
+                                    >
+                                        <span className="icon">⬇️</span>
+                                        git clone
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="actions-grid">
+                                    <button 
+                                        className={`action-btn local-action ${!localRepo ? 'primary' : 'success'}`}
+                                        onClick={cloneDirectRepo}
+                                        disabled={!!localRepo}
+                                    >
+                                        <span className="icon">⬇️</span>
+                                        git clone
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </main>
+
+                    {/* Right Sidebar */}
+                    <aside className="sidebar-right">
+                        {/* Command Reference */}
+                        <div className="sidebar-section">
+                            <h3>Git Commands</h3>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                <div style={{ marginBottom: '0.5rem', padding: '0.5rem', background: 'var(--bg-input)', borderRadius: '4px' }}>
+                                    <code style={{ color: 'var(--accent-blue)' }}>git init</code>
+                                    <div style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>Create new repository</div>
+                                </div>
+                                <div style={{ marginBottom: '0.5rem', padding: '0.5rem', background: 'var(--bg-input)', borderRadius: '4px' }}>
+                                    <code style={{ color: 'var(--accent-blue)' }}>git clone [url]</code>
+                                    <div style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>Copy remote repository</div>
+                                </div>
+                                <div style={{ marginBottom: '0.5rem', padding: '0.5rem', background: 'var(--bg-input)', borderRadius: '4px' }}>
+                                    <code style={{ color: 'var(--accent-blue)' }}>git remote add</code>
+                                    <div style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>Connect to remote</div>
+                                </div>
+                                <div style={{ padding: '0.5rem', background: 'var(--bg-input)', borderRadius: '4px' }}>
+                                    <code style={{ color: 'var(--accent-blue)' }}>git push</code>
+                                    <div style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>Upload to remote</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Activity Log */}
+                        <div className="log-container">
+                            <h3>Activity Log</h3>
+                            <div className="log-list">
+                                {logs.map(log => (
+                                    <div key={log.id} className="log-item">
+                                        <span className="log-icon">{log.icon}</span>
+                                        <div className="log-content">
+                                            <span className="log-message">{log.message}</span>
+                                            <span className="log-detail">{log.detail}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                                {logs.length === 0 && (
+                                    <div className="log-item">
+                                        <span className="log-icon">💡</span>
+                                        <div className="log-content">
+                                            <span className="log-message">Choose a scenario to begin</span>
+                                            <span className="log-detail">Start fresh or join existing</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* Status Bar */}
+                    <footer className="status-bar">
+                        <div className="status-left">
+                            <div className="status-item">
+                                <span className={`status-dot ${isComplete ? 'green' : scenario ? 'orange' : 'red'}`}></span>
+                                <span>
+                                    {isComplete ? 'Setup complete' : scenario ? 'Setup in progress' : 'No scenario selected'}
+                                </span>
+                            </div>
+                            {scenario && (
+                                <div className="status-item">
+                                    <span>{scenario === 'fresh' ? '🆕 Fresh Project' : scenario === 'fork' ? '🍴 Fork & Clone' : '⬇️ Direct Clone'}</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="status-right">
+                            <button 
+                                onClick={resetWorkflow}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem'
+                                }}
+                            >
+                                Reset
+                            </button>
+                        </div>
+                    </footer>
+
+                    {/* Modal */}
+                    {modal && (
+                        <div className="modal-overlay" onClick={() => !modal.showBothButtons && setModal(null)}>
+                            <div className="modal" onClick={e => e.stopPropagation()}>
+                                <h2>{modal.title}</h2>
+                                <p>{modal.message}</p>
+                                {modal.input && (
+                                    <input
+                                        type="text"
+                                        className="modal-input"
+                                        placeholder={modal.placeholder}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                modal.onConfirm(e.target.value);
+                                            }
+                                        }}
+                                    />
+                                )}
+                                <div className="modal-buttons">
+                                    {modal.showBothButtons ? (
+                                        <>
+                                            <button 
+                                                className="modal-btn cancel"
+                                                onClick={() => modal.onCancel && modal.onCancel()}
+                                            >
+                                                {modal.cancelText || 'Cancel'}
+                                            </button>
+                                            <button 
+                                                className="modal-btn confirm"
+                                                onClick={() => {
+                                                    const input = document.querySelector('.modal-input');
+                                                    modal.onConfirm(input ? input.value : null);
+                                                }}
+                                            >
+                                                {modal.confirmText || 'Confirm'}
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            {!modal.hideCancel && (
+                                                <button className="modal-btn cancel" onClick={() => setModal(null)}>
+                                                    {modal.cancelText || 'Cancel'}
+                                                </button>
+                                            )}
+                                            <button 
+                                                className="modal-btn confirm"
+                                                onClick={() => {
+                                                    const input = document.querySelector('.modal-input');
+                                                    modal.onConfirm(input ? input.value : null);
+                                                }}
+                                            >
+                                                {modal.confirmText || 'Confirm'}
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Toast */}
+                    {toast && (
+                        <div className={`toast ${toast.type}`}>
+                            <span>
+                                {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✗' : 'ℹ'}
+                            </span>
+                            <span>{toast.message}</span>
+                        </div>
+                    )}
+
+                    {/* Celebration */}
+                    {showCelebration && (
+                        <div className="celebration">
+                            {Array.from({ length: 50 }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="confetti"
+                                    style={{
+                                        left: `${Math.random() * 100}%`,
+                                        backgroundColor: ['#58a6ff', '#3fb950', '#a371f7', '#d29922', '#f85149', '#db61a2'][Math.floor(Math.random() * 6)],
+                                        animationDelay: `${Math.random() * 0.5}s`,
+                                        borderRadius: Math.random() > 0.5 ? '50%' : '0'
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+    </script>
+</body>
+</html>

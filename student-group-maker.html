@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Group Maker</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #222;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 1.1rem;
+            color: #444;
+        }
+
+        .student-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .student-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+
+        .student-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .student-item label {
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            color: #555;
+        }
+
+        .control-group select,
+        .control-group input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .select-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .select-buttons button {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            background: #6b7280;
+        }
+
+        .select-buttons button:hover {
+            background: #4b5563;
+        }
+
+        .groups-output {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .group-card {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        .group-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: #0369a1;
+        }
+
+        .present-count {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .groups-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .groups-header h2 {
+            margin: 0;
+        }
+
+        .groups-footer {
+            margin-top: 15px;
+        }
+
+        .group-card ul a {
+            text-decoration: none;
+            margin-left: 4px;
+            display: inline-flex;
+            align-items: center;
+            vertical-align: middle;
+        }
+
+        .group-card ul a:hover {
+            opacity: 0.7;
+        }
+
+        .group-card ul a svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .github-icon {
+            fill: #333;
+        }
+
+        .email-icon {
+            fill: #333;
+        }
+
+        .group-card li {
+            margin: 4px 0;
+            padding: 6px 8px;
+            background: #e0f2fe;
+            border-radius: 4px;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .group-card li:active {
+            cursor: grabbing;
+        }
+
+        .group-card li.dragging {
+            opacity: 0.5;
+        }
+
+        .group-card ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            min-height: 40px;
+        }
+
+        .group-card.drag-over {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+
+        .student-name {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Student Group Maker</h1>
+
+    <div class="container">
+        <h2>Students</h2>
+        <div class="select-buttons">
+            <button onclick="selectAll()">Select All</button>
+            <button onclick="selectNone()">Select None</button>
+        </div>
+        <div class="present-count" id="presentCount"></div>
+        <div class="student-list" id="studentList"></div>
+    </div>
+
+    <div class="container">
+        <h2>Group Settings</h2>
+        <div class="controls">
+            <div class="control-group">
+                <label for="mode">Mode</label>
+                <select id="mode" onchange="updateModeUI()">
+                    <option value="numGroups">Specify number of groups</option>
+                    <option value="groupSize">Specify group size</option>
+                </select>
+            </div>
+            <div class="control-group" id="numGroupsControl">
+                <label for="numGroups">Number of Groups</label>
+                <input type="number" id="numGroups" min="1" value="4">
+            </div>
+            <div class="control-group" id="groupSizeControl" style="display: none;">
+                <label for="groupSize">Students per Group</label>
+                <input type="number" id="groupSize" min="1" value="3">
+            </div>
+            <button onclick="generateGroups()">Generate Groups</button>
+        </div>
+    </div>
+
+    <div class="container" id="outputContainer" style="display: none;">
+        <div class="groups-header">
+            <h2>Groups</h2>
+        </div>
+        <div class="groups-output" id="groupsOutput"></div>
+        <div class="groups-footer">
+            <button id="copyBtn" onclick="copyGroupsToClipboard()">Copy to Clipboard</button>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // ENTER YOUR STUDENT NAMES HERE
+        // name is required, email and github are optional
+        // ========================================
+        const STUDENTS = [
+            { name: "Alice Johnson", email: "ajohnson@student.edu", github: "alicej" },
+            { name: "Bob Smith", email: "bsmith@student.edu", github: "bobsmith42" },
+            { name: "Carol Williams", email: "cwilliams@student.edu", github: "" },
+            { name: "David Brown", email: "", github: "dbrown-dev" },
+            { name: "Emma Davis", email: "edavis@student.edu", github: "emmacodes" },
+            { name: "Frank Miller", email: "fmiller@student.edu", github: "frankmiller" },
+            { name: "Grace Wilson", email: "gwilson@student.edu", github: "" },
+            { name: "Henry Moore", email: "", github: "" },
+            { name: "Ivy Taylor", email: "itaylor@student.edu", github: "ivyt" },
+            { name: "Jack Anderson", email: "janderson@student.edu", github: "jackand" },
+            { name: "Kate Thomas", email: "kthomas@student.edu", github: "katethomas" },
+            { name: "Leo Jackson", email: "ljackson@student.edu", github: "" },
+            { name: "Mia White", email: "mwhite@student.edu", github: "miawhite" },
+            { name: "Noah Harris", email: "", github: "noahh" },
+            { name: "Olivia Martin", email: "omartin@student.edu", github: "oliviam" },
+            { name: "Paul Garcia", email: "pgarcia@student.edu", github: "" },
+            { name: "Quinn Martinez", email: "qmartinez@student.edu", github: "quinnm" },
+            { name: "Ruby Robinson", email: "rrobinson@student.edu", github: "rubydev" },
+            { name: "Sam Clark", email: "sclark@student.edu", github: "samclark" },
+            { name: "Tina Lewis", email: "tlewis@student.edu", github: "" }
+        ];
+        // ========================================
+
+        function init() {
+            const listEl = document.getElementById('studentList');
+            listEl.innerHTML = '';
+
+            STUDENTS.forEach((student, index) => {
+                const div = document.createElement('div');
+                div.className = 'student-item';
+                div.innerHTML = `
+                    <input type="checkbox" id="student${index}" checked onchange="updateCount()">
+                    <label for="student${index}">${student.name}</label>
+                `;
+                listEl.appendChild(div);
+            });
+
+            updateCount();
+        }
+
+        function updateCount() {
+            const checkboxes = document.querySelectorAll('#studentList input[type="checkbox"]');
+            const checked = Array.from(checkboxes).filter(cb => cb.checked).length;
+            document.getElementById('presentCount').textContent = `${checked} of ${STUDENTS.length} present`;
+        }
+
+        function selectAll() {
+            document.querySelectorAll('#studentList input[type="checkbox"]').forEach(cb => cb.checked = true);
+            updateCount();
+        }
+
+        function selectNone() {
+            document.querySelectorAll('#studentList input[type="checkbox"]').forEach(cb => cb.checked = false);
+            updateCount();
+        }
+
+        function updateModeUI() {
+            const mode = document.getElementById('mode').value;
+            document.getElementById('numGroupsControl').style.display = mode === 'numGroups' ? 'flex' : 'none';
+            document.getElementById('groupSizeControl').style.display = mode === 'groupSize' ? 'flex' : 'none';
+        }
+
+        function getPresentStudents() {
+            const checkboxes = document.querySelectorAll('#studentList input[type="checkbox"]');
+            const present = [];
+            checkboxes.forEach((cb, index) => {
+                if (cb.checked) {
+                    present.push(STUDENTS[index]);
+                }
+            });
+            return present;
+        }
+
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function generateGroups() {
+            const present = getPresentStudents();
+            if (present.length === 0) {
+                alert('No students selected.');
+                return;
+            }
+
+            const shuffled = shuffle(present);
+            const mode = document.getElementById('mode').value;
+            let groups = [];
+
+            if (mode === 'numGroups') {
+                const numGroups = parseInt(document.getElementById('numGroups').value) || 1;
+                const actualGroups = Math.min(numGroups, shuffled.length);
+                
+                // Initialize empty groups
+                for (let i = 0; i < actualGroups; i++) {
+                    groups.push([]);
+                }
+                
+                // Distribute students round-robin for even distribution
+                shuffled.forEach((student, index) => {
+                    groups[index % actualGroups].push(student);
+                });
+
+            } else {
+                const groupSize = parseInt(document.getElementById('groupSize').value) || 1;
+                
+                // Fill groups to the specified size
+                for (let i = 0; i < shuffled.length; i += groupSize) {
+                    groups.push(shuffled.slice(i, i + groupSize));
+                }
+
+                // If last group is too small, redistribute
+                if (groups.length > 1) {
+                    const lastGroup = groups[groups.length - 1];
+                    if (lastGroup.length < Math.ceil(groupSize / 2)) {
+                        // Distribute last group members to other groups
+                        groups.pop();
+                        lastGroup.forEach((student, index) => {
+                            groups[index % groups.length].push(student);
+                        });
+                    }
+                }
+            }
+
+            displayGroups(groups);
+        }
+
+        // Store current groups for clipboard
+        let currentGroups = [];
+        let currentGroupNames = [];
+
+        function getRandomGroupName() {
+            const adjectives = [
+                // Tech
+                "Quantum", "Cyber", "Digital", "Neon", "Binary", "Pixel", "Chrome", "Neural", "Crypto", "Laser",
+                "Turbo", "Atomic", "Sonic", "Electric", "Plasma", "Hyper", "Nano", "Omega", "Alpha", "Beta",
+                // Fierce/Cool
+                "Savage", "Rogue", "Shadow", "Storm", "Thunder", "Blazing", "Phantom", "Stealth", "Apex", "Prime",
+                "Wild", "Fierce", "Bold", "Rapid", "Swift", "Silent", "Crimson", "Midnight", "Iron", "Steel",
+                // Feminine/Elegant
+                "Velvet", "Crystal", "Mystic", "Graceful", "Radiant", "Serene", "Celestial", "Aurora", "Luna", "Nova",
+                "Scarlet", "Golden", "Silver", "Jade", "Ruby", "Sapphire", "Pearl", "Orchid", "Rose", "Ember",
+                "Elegant", "Divine", "Ethereal", "Luminous", "Enchanted", "Majestic", "Regal", "Pristine", "Opal", "Coral",
+                "Lavender", "Violet", "Indigo", "Ivory", "Gilded", "Silk", "Satin", "Delicate", "Brilliant", "Dazzling",
+                // Cerebral/Intellectual
+                "Clever", "Brilliant", "Curious", "Wise", "Infinite", "Abstract", "Logical", "Intuitive", "Strategic", "Visionary",
+                "Inventive", "Creative", "Thoughtful", "Mindful", "Enlightened", "Inspired", "Perceptive", "Astute", "Keen", "Lucid",
+                "Profound", "Analytical", "Systematic", "Tactical", "Calculated", "Methodical", "Empirical", "Theoretical", "Conceptual", "Cognitive",
+                // Sports/Action
+                "Champion", "Elite", "Winning", "Victorious", "Unstoppable", "Legendary", "Dynamic", "Power", "Flying", "Charging"
+            ];
+
+            const nouns = [
+                // Animals
+                "Tigers", "Wolves", "Panthers", "Falcons", "Hawks", "Eagles", "Lions", "Bears", "Sharks", "Dragons",
+                "Cobras", "Vipers", "Ravens", "Phoenixes", "Jaguars", "Leopards", "Foxes", "Lynx", "Owls", "Stallions",
+                "Dolphins", "Orcas", "Griffins", "Serpents", "Scorpions", "Hornets", "Wasps", "Mantis", "Cougars", "Raptors",
+                "Swans", "Doves", "Butterflies", "Fireflies", "Hummingbirds", "Peacocks", "Herons", "Gazelles", "Songbirds", "Sparrows",
+                // Tech/Abstract
+                "Coders", "Hackers", "Circuits", "Bytes", "Sparks", "Glitch", "Matrix", "Pulse", "Fusion", "Nexus",
+                "Force", "Squad", "Crew", "Alliance", "Legion", "Brigade", "Unit", "Collective", "Syndicate", "Vanguard",
+                // Elegant/Nature
+                "Sirens", "Valkyries", "Muses", "Queens", "Rebels", "Stars", "Comets", "Flames", "Waves", "Blossoms",
+                "Tempest", "Eclipse", "Horizon", "Zenith", "Titans", "Knights", "Ninjas", "Samurai", "Warriors", "Legends",
+                "Petals", "Willows", "Meadows", "Gardens", "Auroras", "Crystals", "Diamonds", "Pearls", "Roses", "Lilies",
+                "Dancers", "Dreamers", "Mystics", "Empresses", "Goddesses", "Enchantresses", "Priestesses", "Graces", "Nymphs", "Fates",
+                // Cerebral/Intellectual
+                "Scholars", "Sages", "Thinkers", "Philosophers", "Architects", "Strategists", "Pioneers", "Innovators", "Visionaries", "Theorists",
+                "Minds", "Intellects", "Virtuosos", "Prodigies", "Savants", "Luminaries", "Mentors", "Oracles", "Pathfinders", "Catalysts",
+                "Puzzlers", "Solvers", "Analysts", "Synthesizers", "Explorers", "Discoverers", "Seekers", "Inquirers", "Logicians", "Reasoners"
+            ];
+
+            const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+            const noun = nouns[Math.floor(Math.random() * nouns.length)];
+            return `${adj} ${noun}`;
+        }
+
+        function formatStudentHTML(student, groupIndex) {
+            const githubSvg = `<svg class="github-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>`;
+            const emailSvg = `<svg class="email-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383-4.708 2.825L15 11.105V5.383zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741zM1 11.105l4.708-2.897L1 5.383v5.722z"/></svg>`;
+            
+            let links = [];
+            if (student.email) {
+                links.push(`<a href="mailto:${student.email}" title="${student.email}">${emailSvg}</a>`);
+            }
+            if (student.github) {
+                links.push(`<a href="https://github.com/${student.github}" target="_blank" title="GitHub: ${student.github}">${githubSvg}</a>`);
+            }
+            const linkStr = links.length > 0 ? links.join(' ') : '';
+            return `<li draggable="true" data-student-index="${STUDENTS.indexOf(student)}" data-group-index="${groupIndex}">
+                <span class="student-name">${student.name}</span>${linkStr}
+            </li>`;
+        }
+
+        function displayGroups(groups) {
+            const outputContainer = document.getElementById('outputContainer');
+            const outputEl = document.getElementById('groupsOutput');
+            
+            outputContainer.style.display = 'block';
+            outputEl.innerHTML = '';
+
+            // Generate unique names for each group
+            const usedNames = new Set();
+            const groupNames = groups.map(() => {
+                let name;
+                do {
+                    name = getRandomGroupName();
+                } while (usedNames.has(name));
+                usedNames.add(name);
+                return name;
+            });
+
+            // Store for clipboard
+            currentGroups = groups;
+            currentGroupNames = groupNames;
+
+            groups.forEach((group, index) => {
+                const card = document.createElement('div');
+                card.className = 'group-card';
+                card.dataset.groupIndex = index;
+                card.innerHTML = `
+                    <h3>Group ${index + 1} - ${groupNames[index]} (${group.length})</h3>
+                    <ul>
+                        ${group.map(student => formatStudentHTML(student, index)).join('')}
+                    </ul>
+                `;
+                outputEl.appendChild(card);
+            });
+
+            setupDragAndDrop();
+        }
+
+        function setupDragAndDrop() {
+            const items = document.querySelectorAll('.group-card li');
+            const cards = document.querySelectorAll('.group-card');
+
+            items.forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+
+            cards.forEach(card => {
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('dragleave', handleDragLeave);
+                card.addEventListener('drop', handleDrop);
+            });
+        }
+
+        let draggedItem = null;
+        let sourceGroupIndex = null;
+
+        function handleDragStart(e) {
+            draggedItem = this;
+            sourceGroupIndex = parseInt(this.dataset.groupIndex);
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.group-card').forEach(card => {
+                card.classList.remove('drag-over');
+            });
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+
+            const targetGroupIndex = parseInt(this.dataset.groupIndex);
+            
+            if (sourceGroupIndex === targetGroupIndex) {
+                return;
+            }
+
+            const studentIndex = parseInt(draggedItem.dataset.studentIndex);
+            const student = STUDENTS[studentIndex];
+
+            // Remove from source group
+            const sourceIdx = currentGroups[sourceGroupIndex].findIndex(s => STUDENTS.indexOf(s) === studentIndex);
+            if (sourceIdx > -1) {
+                currentGroups[sourceGroupIndex].splice(sourceIdx, 1);
+            }
+
+            // Add to target group
+            currentGroups[targetGroupIndex].push(student);
+
+            // Re-render with same group names
+            renderGroupsWithCurrentNames();
+        }
+
+        function renderGroupsWithCurrentNames() {
+            const outputEl = document.getElementById('groupsOutput');
+            outputEl.innerHTML = '';
+
+            currentGroups.forEach((group, index) => {
+                const card = document.createElement('div');
+                card.className = 'group-card';
+                card.dataset.groupIndex = index;
+                card.innerHTML = `
+                    <h3>Group ${index + 1} - ${currentGroupNames[index]} (${group.length})</h3>
+                    <ul>
+                        ${group.map(student => formatStudentHTML(student, index)).join('')}
+                    </ul>
+                `;
+                outputEl.appendChild(card);
+            });
+
+            setupDragAndDrop();
+        }
+
+        function copyGroupsToClipboard() {
+            if (currentGroups.length === 0) {
+                alert('No groups to copy. Generate groups first.');
+                return;
+            }
+
+            let text = '';
+            currentGroups.forEach((group, index) => {
+                text += `**Group ${index + 1} - ${currentGroupNames[index]}**\n`;
+                group.forEach(student => {
+                    let line = `- ${student.name}`;
+                    let links = [];
+                    if (student.email) {
+                        links.push(`Email: ${student.email}`);
+                    }
+                    if (student.github) {
+                        links.push(`GitHub: https://github.com/${student.github}`);
+                    }
+                    if (links.length > 0) {
+                        line += ` (${links.join(', ')})`;
+                    }
+                    text += line + '\n';
+                });
+                text += '\n';
+            });
+
+            navigator.clipboard.writeText(text.trim()).then(() => {
+                const btn = document.getElementById('copyBtn');
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                alert('Failed to copy to clipboard.');
+            });
+        }
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

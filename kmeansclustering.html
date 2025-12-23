@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-Means Clustering Visualizer</title>
+    <style>
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --background-color: #f8f9fa;
+            --surface-color: #ffffff;
+            --text-color: #333;
+            --border-color: #dee2e6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1, h2 {
+            color: var(--text-color);
+            font-weight: 600;
+        }
+        
+        h1 {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            justify-content: center;
+        }
+
+        .card {
+            background-color: var(--surface-color);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+        }
+
+        #main-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            width: 100%;
+        }
+        
+        #visualizer-card {
+            flex: 3;
+            min-width: 450px;
+        }
+
+        #controls-card {
+            flex: 1;
+            min-width: 250px;
+        }
+        
+        #canvas-container {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            cursor: crosshair;
+        }
+
+        #controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        #controls label {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        
+        #controls input[type="number"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        
+        button#run-btn {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        button#run-btn:hover {
+            background-color: #0056b3;
+        }
+
+        button.secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        
+        button.secondary:hover {
+            background-color: #5a6268;
+        }
+        
+        button:active {
+            transform: scale(0.98);
+        }
+
+        #tables-container {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .table-card {
+            flex: 1;
+            min-width: 300px;
+            overflow-x: auto;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: 600;
+        }
+        
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>K-Means Clustering Visualizer</h1>
+
+    <div class="container">
+        <div id="main-content">
+            <div id="visualizer-card" class="card">
+                 <div id="canvas-container">
+                    <canvas id="plot" width="420" height="420"></canvas>
+                </div>
+            </div>
+            <div id="controls-card" class="card">
+                <h2>Controls</h2>
+                <div id="controls">
+                    <div>
+                        <label for="num-clusters">Number of Clusters (K):</label>
+                        <input type="number" id="num-clusters" value="2" min="1">
+                    </div>
+                    <button id="run-btn">Run K-Means</button>
+                    <button id="clear-results-btn" class="secondary">Clear Results</button>
+                    <button id="clear-points-btn" class="secondary">Clear Data Points</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tables-container">
+            <div class="table-card card">
+                <h2>Data Points</h2>
+                <table id="points-table">
+                    <thead>
+                        <tr>
+                            <th>X</th>
+                            <th>Y</th>
+                            <th>Cluster</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-card card">
+                <h2>Cluster Centers</h2>
+                <table id="clusters-table">
+                    <thead>
+                        <tr>
+                            <th>Cluster</th>
+                            <th>Center X</th>
+                            <th>Center Y</th>
+                            <th>Avg. Min. Distance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('plot');
+        const ctx = canvas.getContext('2d');
+        const numClustersInput = document.getElementById('num-clusters');
+        const runBtn = document.getElementById('run-btn');
+        const clearResultsBtn = document.getElementById('clear-results-btn');
+        const clearPointsBtn = document.getElementById('clear-points-btn');
+        const pointsTableBody = document.querySelector('#points-table tbody');
+        const clustersTableBody = document.querySelector('#clusters-table tbody');
+
+        const CANVAS_WIDTH = canvas.width;
+        const CANVAS_HEIGHT = canvas.height;
+        const AXIS_MAX = 6;
+        const PADDING = 30;
+        const PLOT_WIDTH = CANVAS_WIDTH - 2 * PADDING;
+        const PLOT_HEIGHT = CANVAS_HEIGHT - 2 * PADDING;
+
+        let dataPoints = [];
+        let clusterCenters = [];
+        const colors = ['#007bff', '#dc3545', '#28a745', '#6f42c1', '#fd7e14', '#6610f2', '#ffc107', '#17a2b8'];
+
+        function drawAxes() {
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 1;
+
+            ctx.beginPath();
+            ctx.moveTo(PADDING, CANVAS_HEIGHT - PADDING);
+            ctx.lineTo(CANVAS_WIDTH - PADDING, CANVAS_HEIGHT - PADDING);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(PADDING, PADDING);
+            ctx.lineTo(PADDING, CANVAS_HEIGHT - PADDING);
+            ctx.stroke();
+
+            ctx.fillStyle = '#666';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            for (let i = 0; i <= AXIS_MAX; i++) {
+                const x = PADDING + (i / AXIS_MAX) * PLOT_WIDTH;
+                ctx.beginPath();
+                ctx.moveTo(x, CANVAS_HEIGHT - PADDING - 5);
+                ctx.lineTo(x, CANVAS_HEIGHT - PADDING + 5);
+                ctx.stroke();
+                ctx.fillText(i, x, CANVAS_HEIGHT - PADDING + 15);
+
+                const y = CANVAS_HEIGHT - PADDING - (i / AXIS_MAX) * PLOT_HEIGHT;
+                ctx.beginPath();
+                ctx.moveTo(PADDING - 5, y);
+                ctx.lineTo(PADDING + 5, y);
+                ctx.stroke();
+                ctx.fillText(i, PADDING - 15, y);
+            }
+        }
+
+        function toCanvasCoords(point) {
+            const x = PADDING + (point.x / AXIS_MAX) * PLOT_WIDTH;
+            const y = CANVAS_HEIGHT - PADDING - (point.y / AXIS_MAX) * PLOT_HEIGHT;
+            return { x, y };
+        }
+
+        function fromCanvasCoords(x, y) {
+            const dataX = ((x - PADDING) / PLOT_WIDTH) * AXIS_MAX;
+            const dataY = ((CANVAS_HEIGHT - PADDING - y) / PLOT_HEIGHT) * AXIS_MAX;
+            return { x: dataX, y: dataY };
+        }
+
+        function drawPoint(point, color = '#333') {
+            const { x, y } = toCanvasCoords(point);
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, 5, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+
+        function addPoint(event) {
+            const rect = canvas.getBoundingClientRect();
+
+            // Scale click coordinates to match the canvas's internal resolution
+            let canvasX = (event.clientX - rect.left) * (canvas.width / rect.width);
+            let canvasY = (event.clientY - rect.top) * (canvas.height / rect.height);
+
+            // Check if the scaled click is within the plottable area
+            if (canvasX >= PADDING && canvasX <= CANVAS_WIDTH - PADDING &&
+                canvasY >= PADDING && canvasY <= CANVAS_HEIGHT - PADDING) {
+                const point = fromCanvasCoords(canvasX, canvasY);
+                dataPoints.push({ ...point, cluster: null });
+                redrawCanvas(); // Redraw all points including the new one
+                updatePointsTable();
+            }
+        }
+
+        function updatePointsTable() {
+            pointsTableBody.innerHTML = '';
+            dataPoints.forEach(p => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${p.x.toFixed(2)}</td><td>${p.y.toFixed(2)}</td><td>${p.cluster !== null ? p.cluster + 1 : ''}</td>`;
+                pointsTableBody.appendChild(row);
+            });
+        }
+
+        function clearResults() {
+            dataPoints.forEach(p => p.cluster = null);
+            clusterCenters = [];
+            redrawCanvas();
+            updatePointsTable();
+            clustersTableBody.innerHTML = '';
+        }
+
+        function clearDataPoints() {
+            dataPoints = [];
+            clusterCenters = [];
+            drawAxes();
+            pointsTableBody.innerHTML = '';
+            clustersTableBody.innerHTML = '';
+        }
+
+        function redrawCanvas() {
+            drawAxes();
+            dataPoints.forEach(p => {
+                const color = p.cluster !== null ? colors[p.cluster % colors.length] : '#333';
+                drawPoint(p, color);
+            });
+            clusterCenters.forEach((center, i) => {
+                const { x, y } = toCanvasCoords(center);
+                ctx.strokeStyle = colors[i % colors.length];
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x - 6, y - 6);
+                ctx.lineTo(x + 6, y + 6);
+                ctx.moveTo(x - 6, y + 6);
+                ctx.lineTo(x + 6, y - 6);
+                ctx.stroke();
+            });
+        }
+
+        function euclideanDistance(p1, p2) {
+            return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+        }
+
+        function runKMeans() {
+            const k = parseInt(numClustersInput.value);
+            if (k <= 0 || dataPoints.length < k) {
+                alert("Please add more data points or choose a smaller K.");
+                return;
+            }
+
+            clusterCenters = [];
+            const usedIndices = new Set();
+            while(clusterCenters.length < k){
+                const randomIndex = Math.floor(Math.random() * dataPoints.length);
+                if(!usedIndices.has(randomIndex)){
+                    clusterCenters.push({ ...dataPoints[randomIndex] });
+                    usedIndices.add(randomIndex);
+                }
+            }
+
+            let assignmentsChanged = true;
+            let iterations = 0;
+            const maxIterations = 100;
+
+            while (assignmentsChanged && iterations < maxIterations) {
+                assignmentsChanged = false;
+
+                dataPoints.forEach(point => {
+                    let minDist = Infinity;
+                    let newCluster = -1;
+                    clusterCenters.forEach((center, i) => {
+                        const dist = euclideanDistance(point, center);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            newCluster = i;
+                        }
+                    });
+                    if (point.cluster !== newCluster) {
+                        point.cluster = newCluster;
+                        assignmentsChanged = true;
+                    }
+                });
+
+                if (assignmentsChanged) {
+                    const newCenters = Array.from({ length: k }, () => ({ x: 0, y: 0, count: 0 }));
+                    dataPoints.forEach(point => {
+                        newCenters[point.cluster].x += point.x;
+                        newCenters[point.cluster].y += point.y;
+                        newCenters[point.cluster].count++;
+                    });
+
+                    newCenters.forEach((center, i) => {
+                        if (center.count > 0) {
+                            clusterCenters[i] = { x: center.x / center.count, y: center.y / center.count };
+                        }
+                    });
+                }
+                iterations++;
+            }
+            updateClusterTable();
+            redrawCanvas();
+            updatePointsTable();
+        }
+        
+        function updateClusterTable() {
+            clustersTableBody.innerHTML = '';
+            clusterCenters.forEach((center, i) => {
+                const pointsInCluster = dataPoints.filter(p => p.cluster === i);
+                let totalDistance = 0;
+                pointsInCluster.forEach(p => {
+                    totalDistance += euclideanDistance(p, center);
+                });
+                const avgMinDistance = pointsInCluster.length > 0 ? totalDistance / pointsInCluster.length : 0;
+                
+                const row = document.createElement('tr');
+                const clusterColor = colors[i % colors.length];
+                row.innerHTML = `
+                    <td><span style="color: ${clusterColor}; font-weight: bold;">${i + 1}</span></td>
+                    <td>${center.x.toFixed(2)}</td>
+                    <td>${center.y.toFixed(2)}</td>
+                    <td>${avgMinDistance.toFixed(2)}</td>
+                `;
+                clustersTableBody.appendChild(row);
+            });
+        }
+
+        drawAxes();
+        canvas.addEventListener('click', addPoint);
+        runBtn.addEventListener('click', runKMeans);
+        clearResultsBtn.addEventListener('click', clearResults);
+        clearPointsBtn.addEventListener('click', clearDataPoints);
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Diffusion Process</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .process-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 60px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .phase {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .phase-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #ffd700;
+        }
+        
+        .step-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .step {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        
+        .step:hover {
+            transform: scale(1.1);
+        }
+        
+        .original {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            border: 3px solid #fff;
+        }
+        
+        .noise-1 {
+            background: linear-gradient(45deg, #4CAF50, #888);
+            border: 2px solid #fff;
+        }
+        
+        .noise-2 {
+            background: linear-gradient(45deg, #888, #666);
+            border: 1px solid #fff;
+        }
+        
+        .noise-3 {
+            background: #444;
+            border: 1px solid #666;
+        }
+        
+        .pure-noise {
+            background: #333;
+            border: 1px solid #555;
+        }
+        
+        .arrow {
+            font-size: 24px;
+            color: #ffd700;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .explanation {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .explanation h3 {
+            color: #ffd700;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .explanation p {
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .neural-network {
+            text-align: center;
+            margin: 40px 0;
+        }
+        
+        .nn-box {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+            font-weight: bold;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        .generation-arrow {
+            font-size: 30px;
+            color: #00ff88;
+            margin: 20px;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .activity-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .noisy-image {
+            text-align: center;
+        }
+        
+        #noisyCanvas {
+            border: 3px solid #ffd700;
+            border-radius: 12px;
+            background: #000;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        .image-label {
+            margin-top: 10px;
+            font-size: 16px;
+            color: #ffd700;
+            font-weight: bold;
+        }
+        
+        .denoising-panel {
+            flex: 1;
+            min-width: 320px;
+        }
+        
+        .strategy-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+        
+        .feature-buttons {
+            display: grid;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-btn {
+            padding: 14px;
+            background: #333;
+            color: white;
+            border: 2px solid #555;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .feature-btn:hover:not(:disabled) {
+            background: #444;
+            border-color: #ffd700;
+        }
+        
+        .feature-btn:disabled {
+            background: #4CAF50;
+            border-color: #45a049;
+            cursor: not-allowed;
+        }
+        
+        .progress-display {
+            background: rgba(0,0,0,0.4);
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 18px;
+            border: 1px solid #555;
+        }
+        
+        .progress-title {
+            margin-bottom: 12px;
+            font-weight: bold;
+            color: #ffd700;
+            font-size: 16px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 24px;
+            background: #333;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 10px;
+            border: 1px solid #555;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.8s ease;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .reset-btn, .optimal-btn {
+            padding: 12px 24px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .optimal-btn {
+            background: #2196F3;
+        }
+        
+        .reset-btn:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+        }
+        
+        .optimal-btn:hover {
+            background: #1976D2;
+            transform: translateY(-2px);
+        }
+        
+        .feedback-panel {
+            background: rgba(255,215,0,0.15);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #ffd700;
+            margin-top: 20px;
+        }
+        
+        #feedbackText {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .score-display {
+            background: rgba(0,0,0,0.4);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #555;
+            text-align: center;
+        }
+
+        .score-title {
+            color: #ffd700;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        #imageQuality {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Diffusion Process</h1>
+        
+        <div class="process-container">
+            <div class="phase">
+                <div class="phase-title">Forward Process (Training)</div>
+                <div class="step-container">
+                    <div class="step original">IMG</div>
+                    <div class="arrow">→</div>
+                    <div class="step noise-1">+N</div>
+                    <div class="arrow">→</div>
+                    <div class="step noise-2">+N</div>
+                    <div class="arrow">→</div>
+                    <div class="step noise-3">+N</div>
+                    <div class="arrow">→</div>
+                    <div class="step pure-noise">N</div>
+                </div>
+                <div style="text-align: center; font-size: 14px;">
+                    Gradually add noise over <code>t</code> timesteps. 'Noise' represents random perturbations of the pixel values.
+                </div>
+            </div>
+        </div>
+        
+        <div class="neural-network">
+            <div class="nn-box">
+                <h2>Neural Network Training</h2>
+                <p>
+                    The neural network is trained by observing the noise that is added at each timestep and then learning how to go back to the previous timestep's less noisy version:
+                </p>
+                <p>
+                    The input is in the neural net is the noisy image at timestep <code>t + 1</code>, and the labelled output is the less noisy image at timestep <code>t</code>. The network learns to clean up a noisy image into a clearer one.
+                </p>
+                <p>
+                    What it learns about reversing noise is what enables it to generate new images from pure noise during the reverse process.
+                </p>
+            </div>
+        </div>
+        
+        <div class="process-container">
+            <div class="phase">
+                <div class="phase-title">Reverse Process (Generation)</div>
+                <div class="step-container">
+                    <div class="step pure-noise">N</div>
+                    <div class="generation-arrow">→</div>
+                    <div class="step noise-3">-N</div>
+                    <div class="generation-arrow">→</div>
+                    <div class="step noise-2">-N</div>
+                    <div class="generation-arrow">→</div>
+                    <div class="step noise-1">-N</div>
+                    <div class="generation-arrow">→</div>
+                    <div class="step original">IMG</div>
+                </div>
+                <div style="text-align: center; font-size: 14px;">
+                    Start with noise, iteratively denoise to create image
+                </div>
+            </div>
+        </div>
+        
+        <div class="explanation">
+            <h3>Key Concepts</h3>
+            <p><strong>Training Phase:</strong> The model learns by observing how noise is gradually added to real images over many steps.</p>
+            <p><strong>Generation Phase:</strong> Start with random noise and apply the learned denoising process in reverse.</p>
+            <p><strong>Neural Network:</strong> Predicts what noise to remove at each timestep based on the current noisy image.</p>
+            <p><strong>Markov Chain:</strong> Each step only depends on the previous step, making the process mathematically tractable. This memoryless property means the noise addition at timestep <code>t</code> only needs the image from timestep <code>t - 1</code>, not the entire history.</p>
+        </div>
+        
+        <!-- <div class="explanation">
+            <h3>Markov Chain Properties</h3>
+            <p>The diffusion process forms a Markov chain where each state depends only on the previous state. This creates several advantages:</p>
+            <p><strong>Forward Process:</strong> q(x_t | x_{t-1}) - the probability of the image at step t depends only on step t-1, not the full history.</p>
+            <p><strong>Tractable Math:</strong> We can analytically compute the noise level at any timestep without simulating all intermediate steps.</p>
+            <p><strong>Efficient Training:</strong> The network can be trained on random timesteps independently, making the process parallelizable.</p>
+            <p><strong>Controllable Generation:</strong> You can start generation from any intermediate noise level, not just pure noise.</p>
+        </div> -->
+
+        <div class="explanation">
+            <h3>Interactive Activity: Manual Denoising</h3>
+            <p>Try your hand at manual denoising! Apply different denoising algorithms to progressively reveal the hidden cat image. The order matters for optimal results!</p>
+            
+            <div class="activity-container">
+                <div class="noisy-image">
+                    <canvas id="noisyCanvas" width="300" height="300"></canvas>
+                    <div class="image-label">Denoising Steps: <span id="stepCount">0/5</span></div>
+                </div>
+                
+                <div class="denoising-panel">
+                    <div class="score-display">
+                        <div class="score-title">Image Quality Score</div>
+                        <div id="imageQuality">0%</div>
+                    </div>
+                    
+                    <div class="strategy-title">Apply Denoising Algorithms:</div>
+                    <div class="feature-buttons" id="buttonContainer">
+                        <button class="feature-btn" data-feature="edges">Edge Detection & Enhancement</button>
+                        <button class="feature-btn" data-feature="shapes">Shape Recovery Filter</button>
+                        <button class="feature-btn" data-feature="colors">Color Restoration</button>
+                        <button class="feature-btn" data-feature="textures">Texture Enhancement</button>
+                        <button class="feature-btn" data-feature="details">Detail Sharpening</button>
+                    </div>
+                    
+                    <div class="progress-display">
+                        <div class="progress-title">Denoising Progress:</div>
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill"></div>
+                        </div>
+                        <div id="progressText">Click algorithms above to denoise the image</div>
+                    </div>
+                    
+                    <div class="control-buttons">
+                        <button id="resetBtn" class="reset-btn">Start Over</button>
+                        <button id="optimalBtn" class="optimal-btn">Show Optimal Order</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="feedbackPanel" class="feedback-panel">
+                <div id="feedbackText">Click a denoising algorithm above to start revealing the hidden cat image! Try different orders to see which works best.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let canvas, ctx;
+        let originalImageData = null;
+        let appliedFilters = new Set();
+        let stepCount = 0;
+        let qualityScore = 0;
+
+        // Wait for DOM to be fully loaded
+        window.addEventListener('load', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            canvas = document.getElementById('noisyCanvas');
+            if (!canvas) {
+                console.error('Canvas not found');
+                return;
+            }
+            ctx = canvas.getContext('2d');
+            
+            shuffleButtons();
+            setupEventListeners();
+            initActivity();
+        }
+
+        function shuffleButtons() {
+            const buttonContainer = document.getElementById('buttonContainer');
+            if (!buttonContainer) return;
+            
+            const buttons = Array.from(buttonContainer.querySelectorAll('.feature-btn'));
+            if (buttons.length === 0) return;
+            
+            // Fisher-Yates shuffle
+            for (let i = buttons.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [buttons[i], buttons[j]] = [buttons[j], buttons[i]];
+            }
+            
+            // Clear and re-append
+            buttonContainer.innerHTML = '';
+            buttons.forEach(button => {
+                buttonContainer.appendChild(button);
+            });
+        }
+
+        function createCatImage() {
+            if (!ctx) return;
+            
+            ctx.clearRect(0, 0, 300, 300);
+            
+            // Cat head
+            ctx.fillStyle = '#D2691E';
+            ctx.beginPath();
+            ctx.arc(150, 140, 60, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Cat ears
+            ctx.fillStyle = '#D2691E';
+            ctx.beginPath();
+            ctx.moveTo(110, 100);
+            ctx.lineTo(130, 60);
+            ctx.lineTo(150, 90);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.moveTo(190, 100);
+            ctx.lineTo(170, 60);
+            ctx.lineTo(150, 90);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(130, 125, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(170, 125, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Eye shine
+            ctx.fillStyle = '#FFF';
+            ctx.beginPath();
+            ctx.arc(132, 123, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(172, 123, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Nose
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.moveTo(150, 140);
+            ctx.lineTo(145, 150);
+            ctx.lineTo(155, 150);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Whiskers
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(100, 135);
+            ctx.lineTo(130, 140);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(170, 140);
+            ctx.lineTo(200, 135);
+            ctx.stroke();
+            
+            originalImageData = ctx.getImageData(0, 0, 300, 300);
+        }
+
+        function addNoise() {
+            if (!ctx) return;
+            
+            const imageData = ctx.createImageData(300, 300);
+            const data = imageData.data;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const noise = Math.random() * 255;
+                data[i] = noise;
+                data[i + 1] = noise;
+                data[i + 2] = noise;
+                data[i + 3] = 255;
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function applyDenoising(filterType) {
+            if (!ctx || appliedFilters.has(filterType)) return;
+            
+            appliedFilters.add(filterType);
+            stepCount++;
+            
+            const imageData = ctx.getImageData(0, 0, 300, 300);
+            const data = imageData.data;
+            const originalData = originalImageData.data;
+            
+            // Order-dependent effectiveness
+            const idealOrder = ['edges', 'shapes', 'colors', 'textures', 'details'];
+            const currentIndex = idealOrder.indexOf(filterType);
+            const expectedStep = currentIndex + 1;
+            const orderPenalty = Math.abs(stepCount - expectedStep) * 0.15;
+            const effectivenessMultiplier = Math.max(0.3, 1.0 - orderPenalty);
+            
+            const blendFactor = 0.3 * effectivenessMultiplier;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = data[i] * (1 - blendFactor) + originalData[i] * blendFactor;
+                data[i + 1] = data[i + 1] * (1 - blendFactor) + originalData[i + 1] * blendFactor;
+                data[i + 2] = data[i + 2] * (1 - blendFactor) + originalData[i + 2] * blendFactor;
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            qualityScore = Math.min(100, qualityScore + (20 * effectivenessMultiplier));
+            updateUI(filterType, effectivenessMultiplier);
+        }
+
+        function updateUI(appliedFilter, effectiveness) {
+            document.getElementById('stepCount').textContent = `${stepCount}/5`;
+            document.getElementById('progressFill').style.width = `${(stepCount / 5) * 100}%`;
+            document.getElementById('progressText').textContent = `${stepCount}/5 algorithms applied`;
+            document.getElementById('imageQuality').textContent = `${Math.round(qualityScore)}%`;
+            
+            const button = document.querySelector(`[data-feature="${appliedFilter}"]`);
+            if (button) {
+                button.disabled = true;
+                button.textContent = '✓ ' + button.textContent;
+            }
+            
+            const feedbackEl = document.getElementById('feedbackText');
+            if (effectiveness > 0.8) {
+                feedbackEl.textContent = `Excellent choice! ${appliedFilter} was applied at the optimal time.`;
+            } else {
+                feedbackEl.textContent = `${appliedFilter} applied, but better results come from optimal ordering.`;
+            }
+            
+            if (stepCount === 5) {
+                feedbackEl.textContent = `Complete! Quality: ${Math.round(qualityScore)}%. Try 'Show Optimal Order' to see the best sequence.`;
+            }
+        }
+
+        function initActivity() {
+            createCatImage();
+            addNoise();
+            appliedFilters.clear();
+            stepCount = 0;
+            qualityScore = 0;
+            
+            document.getElementById('stepCount').textContent = '0/5';
+            document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('progressText').textContent = 'Click algorithms above to denoise the image';
+            document.getElementById('imageQuality').textContent = '0%';
+            document.getElementById('feedbackText').textContent = 'Click a denoising algorithm above to start revealing the hidden cat image!';
+            
+            document.querySelectorAll('.feature-btn').forEach(btn => {
+                btn.disabled = false;
+                btn.textContent = btn.textContent.replace('✓ ', '');
+            });
+        }
+
+        function setupEventListeners() {
+            document.querySelectorAll('.feature-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (!btn.disabled) {
+                        applyDenoising(btn.dataset.feature);
+                    }
+                });
+            });
+            
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                shuffleButtons();
+                initActivity();
+            });
+            
+            document.getElementById('optimalBtn').addEventListener('click', () => {
+                shuffleButtons();
+                initActivity();
+                
+                const optimalOrder = ['edges', 'shapes', 'colors', 'textures', 'details'];
+                document.getElementById('feedbackText').textContent = 'Watch the optimal denoising order that neural networks learn during training: Edge Detection → Shape Recovery → Color Restoration → Texture Enhancement → Detail Sharpening. During training, diffusion models automatically discover this coarse-to-fine strategy by trying millions of denoising sequences and learning which approaches produce the best results.';
+                
+                optimalOrder.forEach((feature, index) => {
+                    setTimeout(() => {
+                        const btn = document.querySelector(`[data-feature="${feature}"]`);
+                        if (btn && !btn.disabled) {
+                            applyDenoising(feature);
+                        }
+                        
+                        // Add educational message after the sequence completes
+                        if (index === optimalOrder.length - 1) {
+                            setTimeout(() => {
+                                document.getElementById('feedbackText').innerHTML = '<p>Complete! This coarse-to-fine recovery pattern (structure → details) emerges naturally in diffusion models during training.</p> <p>The neural network learns what are the best denoising algorithms and what order they should be applied in simply from looking at the data- no human direction is given!</p><p>The model learns that recovering edges and shapes first, then colors and textures, and finally fine details produces the highest quality results. Your manual experimentation mirrors what the AI does automatically during its learning process.</p>';
+                            }, 1000);
+                        }
+                    }, (index + 1) * 1200);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
