@@ -6,6 +6,6 @@ These can be viewer in a browser using a link like this:
 
 For example, this is a link to one of the examples:
 
-[https://markm208.github.io/vibeCodingInClassTools/cd-pipeline-simulator.html](https://markm208.github.io/vibeCodingInClassTools/cd-pipeline-simulator.html)
+[https://markm208.github.io/vibeCodingInClassTools/git-workflow-simulator.html](https://markm208.github.io/vibeCodingInClassTools/git-workflow-simulator.html)
 
 The most up to date file names are listed above.
