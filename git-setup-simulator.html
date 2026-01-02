@@ -560,6 +560,37 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
+        .log-details-link {
+            color: var(--accent-blue);
+            font-size: 0.7rem;
+            cursor: pointer;
+            margin-top: 0.25rem;
+            opacity: 0.8;
+            transition: opacity 0.2s ease;
+        }
+
+        .log-details-link:hover {
+            opacity: 1;
+        }
+
+        .log-explanation {
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--accent-blue);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            cursor: pointer;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         /* Status Bar */
         .status-bar {
             grid-column: 1 / -1;
@@ -832,6 +863,7 @@
             const [isConnected, setIsConnected] = useState(false);
             const [completedSteps, setCompletedSteps] = useState([]);
             const [logs, setLogs] = useState([]);
+            const [expandedLog, setExpandedLog] = useState(null);
             const [modal, setModal] = useState(null);
             const [toast, setToast] = useState(null);
             const [showCelebration, setShowCelebration] = useState(false);
@@ -841,12 +873,13 @@
             const isComplete = currentSteps.length > 0 && completedSteps.length === currentSteps.length;
 
             // Add log entry
-            const addLog = (icon, message, detail) => {
+            const addLog = (icon, message, detail, explanation = '') => {
                 setLogs(prev => [{
                     id: Date.now(),
                     icon,
                     message,
                     detail,
+                    explanation,
                     time: new Date().toLocaleTimeString()
                 }, ...prev]);
             };
@@ -889,7 +922,7 @@
                         confirmText: 'Start Fresh Project',
                         onConfirm: () => {
                             setScenario('fresh');
-                            addLog('🆕', 'Starting fresh project workflow', 'Create local repo → Push to GitHub');
+                            addLog('🆕', 'Starting fresh project workflow', 'Create local repo → Push to GitHub', 'You chose to start a brand new project. This means you will create a Git repository on your computer first, then create a matching one on GitHub and connect them together.');
                             setModal(null);
                         }
                     });
@@ -905,13 +938,13 @@
                         onConfirm: () => {
                             setScenario('clone');
                             setGithubRepo({ name: 'team-project', owner: 'my-team' });
-                            addLog('🤝', 'Joining as team member', 'Clone directly from team repository');
+                            addLog('🤝', 'Joining as team member', 'Clone directly from team repository', 'You have direct access to push to this repository. This means someone added you as a collaborator. You can clone it and push changes without needing to fork first.');
                             setModal(null);
                         },
                         onCancel: () => {
                             setScenario('fork');
                             setOriginRepo({ name: 'team-project', owner: 'original-author' });
-                            addLog('🤝', 'Joining as contributor', 'Fork on GitHub → Clone locally');
+                            addLog('🤝', 'Joining as contributor', 'Fork on GitHub → Clone locally', 'You do not have direct access to push to this repository. You will fork it first to create your own copy on GitHub, then clone your fork to work locally.');
                             setModal(null);
                         }
                     });
@@ -930,7 +963,7 @@
                         if (value && value.trim()) {
                             const repoName = value.trim().toLowerCase().replace(/\s+/g, '-');
                             setLocalRepo({ name: repoName });
-                            addLog('📁', `Initialized repository "${repoName}"`, `cd ${repoName} && git init`);
+                            addLog('📁', `Initialized repository "${repoName}"`, `cd ${repoName} && git init`, 'You created a new Git repository in your project folder. Git created a hidden .git folder that will track all your changes. Your folder is now a Git repo.');
                             completeStep('git_init');
                             showToast('Local repository created!', 'success');
                         }
@@ -947,7 +980,7 @@
                     confirmText: 'Create on GitHub',
                     onConfirm: () => {
                         setGithubRepo({ name: localRepo.name, owner: 'you' });
-                        addLog('☁️', `Created GitHub repository "${localRepo.name}"`, `github.com/you/${localRepo.name}`);
+                        addLog('☁️', `Created GitHub repository "${localRepo.name}"`, `github.com/you/${localRepo.name}`, 'You created an empty repository on GitHub. This will be the cloud copy of your project. It is empty right now because you have not pushed any code to it yet.');
                         completeStep('create_remote');
                         showToast('GitHub repository created!', 'success');
                         setModal(null);
@@ -963,7 +996,7 @@
                     confirmText: 'Add Remote Origin',
                     onConfirm: () => {
                         setIsConnected(true);
-                        addLog('🔗', 'Connected local to remote', `git remote add origin https://github.com/you/${localRepo.name}.git`);
+                        addLog('🔗', 'Connected local to remote', `git remote add origin https://github.com/you/${localRepo.name}.git`, 'You linked your local repository to GitHub. The name "origin" is a shortcut that points to your GitHub repo URL. Now when you push, Git knows where to send your code.');
                         completeStep('add_remote');
                         showToast('Repositories connected!', 'success');
                         setModal(null);
@@ -978,7 +1011,7 @@
                     input: false,
                     confirmText: 'Push Code',
                     onConfirm: () => {
-                        addLog('⬆️', 'Pushed to GitHub', `git push -u origin main`);
+                        addLog('⬆️', 'Pushed to GitHub', `git push -u origin main`, 'You uploaded your local commits to GitHub. Your code now exists in two places: on your computer and on GitHub. The -u flag sets up tracking so future pushes are simpler.');
                         completeStep('push');
                         showToast('Code pushed to GitHub!', 'success');
                         setModal(null);
@@ -1015,7 +1048,7 @@
                     confirmText: 'Fork to My Account',
                     onConfirm: () => {
                         setGithubRepo({ name: originRepo.name, owner: 'you', forkedFrom: originRepo.owner });
-                        addLog('🍴', `Forked "${originRepo.owner}/${originRepo.name}"`, `Now at: github.com/you/${originRepo.name}`);
+                        addLog('🍴', `Forked "${originRepo.owner}/${originRepo.name}"`, `Now at: github.com/you/${originRepo.name}`, 'You created your own copy of the repository on GitHub. This fork belongs to you, so you can push changes to it. The original repo stays unchanged.');
                         completeStep('fork');
                         showToast('Repository forked!', 'success');
                         setModal(null);
@@ -1032,7 +1065,7 @@
                     onConfirm: () => {
                         setLocalRepo({ name: githubRepo.name, clonedFrom: 'github' });
                         setIsConnected(true);
-                        addLog('⬇️', `Cloned "${githubRepo.name}" to local machine`, `git clone https://github.com/you/${githubRepo.name}.git`);
+                        addLog('⬇️', `Cloned "${githubRepo.name}" to local machine`, `git clone https://github.com/you/${githubRepo.name}.git`, 'You downloaded your forked repository to your computer. Git copied all the files, branches, and history. It also set up "origin" to point to your fork automatically.');
                         completeStep('clone');
                         showToast('Repository cloned!', 'success');
                         setModal(null);
@@ -1069,7 +1102,7 @@
                     onConfirm: () => {
                         setLocalRepo({ name: githubRepo.name, clonedFrom: 'github' });
                         setIsConnected(true);
-                        addLog('⬇️', `Cloned "${githubRepo.owner}/${githubRepo.name}" to local machine`, `git clone https://github.com/${githubRepo.owner}/${githubRepo.name}.git`);
+                        addLog('⬇️', `Cloned "${githubRepo.owner}/${githubRepo.name}" to local machine`, `git clone https://github.com/${githubRepo.owner}/${githubRepo.name}.git`, 'You downloaded the team repository to your computer. Git copied all the files, branches, and history. Since you have push access, you can push changes directly to this repo.');
                         completeStep('clone_direct');
                         showToast('Repository cloned!', 'success');
                         setModal(null);
@@ -1415,6 +1448,22 @@
                                         <div className="log-content">
                                             <span className="log-message">{log.message}</span>
                                             <span className="log-detail">{log.detail}</span>
+                                            {log.explanation && expandedLog !== log.id && (
+                                                <span 
+                                                    className="log-details-link"
+                                                    onClick={() => setExpandedLog(log.id)}
+                                                >
+                                                    Click for details
+                                                </span>
+                                            )}
+                                            {expandedLog === log.id && log.explanation && (
+                                                <div 
+                                                    className="log-explanation"
+                                                    onClick={() => setExpandedLog(null)}
+                                                >
+                                                    {log.explanation}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

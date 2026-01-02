@@ -615,31 +615,6 @@
             font-size: 0.75rem;
         }
 
-        /* Expandable Code Preview */
-        .code-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-            font-size: 0.65rem;
-            color: var(--accent-blue);
-            cursor: pointer;
-            margin-top: 0.35rem;
-            padding: 0.2rem 0;
-            user-select: none;
-        }
-
-        .code-toggle:hover {
-            color: var(--accent-purple);
-        }
-
-        .code-toggle-icon {
-            transition: transform 0.2s ease;
-        }
-
-        .code-toggle-icon.expanded {
-            transform: rotate(90deg);
-        }
-
         .code-preview {
             margin-top: 0.5rem;
             padding: 0.5rem;
@@ -653,6 +628,51 @@
             color: var(--text-secondary);
             max-height: 150px;
             overflow: auto;
+        }
+
+        /* Explanation Toggle */
+        .explanation-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.65rem;
+            color: var(--accent-green);
+            cursor: pointer;
+            margin-top: 0.35rem;
+            padding: 0.2rem 0;
+            user-select: none;
+        }
+
+        .explanation-toggle:hover {
+            color: var(--accent-blue);
+        }
+
+        .explanation-box {
+            margin-top: 0.5rem;
+            padding: 0.6rem;
+            background: var(--bg-dark);
+            border: 2px solid var(--accent-green);
+            border-radius: 6px;
+            font-size: 0.7rem;
+            line-height: 1.5;
+            color: var(--text-primary);
+            animation: slideDown 0.2s ease;
+            cursor: pointer;
+        }
+
+        .explanation-box:hover {
+            border-color: var(--accent-blue);
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* Status Bar */
@@ -918,6 +938,32 @@ int main() {
     return 0;
 }`;
 
+        // Beginner-friendly explanations for each log action
+        const LOG_EXPLANATIONS = {
+            'Created branch': '📂 You made a copy of the main code to work on. Think of it like making a draft copy of a document so you can edit it without changing the original.',
+            'Staged changes': '📥 You selected which changes to save. Staging is like putting items in a shopping cart before checkout. The changes are ready to be saved, but not saved yet.',
+            'Committed': '💾 You saved a snapshot of your code. This is like saving your game. You can always come back to this exact point later if something goes wrong.',
+            'Pushed to origin': '☁️ You uploaded your saved work to GitHub. Now your code is backed up online and your teammates can see it.',
+            'Pull request created': '📝 You asked your team to review your code before adding it to the main project. This is like submitting a paper for review before publishing.',
+            'Requested code review': '👥 You asked a teammate to look at your code. They will check for bugs, suggest improvements, and make sure the code meets team standards.',
+            'PR approved': '🎉 A teammate reviewed your code and said it looks good! You now have permission to add your changes to the main project.',
+            'Merged to main': '🔗 Your code is now part of the main project! Everyone on the team will get your changes the next time they pull.',
+            'Teammate pushed to main': '⚡ Someone else on your team added their code to main. You should pull their changes so you have the latest version.',
+            'Pulled latest from main': '⬇️ You downloaded the newest version of the code from GitHub. Your local copy is now up to date with what the team has.',
+            'Merge conflict': '⚠️ You and a teammate both changed the same lines of code. Git does not know which version to keep, so you need to manually pick which changes to use.',
+            'Changes requested': '📝 The reviewer wants you to make some edits before approving. This is normal! Make the changes, commit, push, and ask for another review.'
+        };
+
+        // Get explanation for a log message
+        const getExplanation = (message) => {
+            for (const [key, explanation] of Object.entries(LOG_EXPLANATIONS)) {
+                if (message.includes(key) || message.startsWith(key)) {
+                    return explanation;
+                }
+            }
+            return null;
+        };
+
         function App() {
             const [code, setCode] = useState(STARTER_CODE);
             const [savedCode, setSavedCode] = useState(STARTER_CODE);
@@ -1107,7 +1153,7 @@ int main() {
                     detail,
                     location,
                     codeSnapshot,
-                    expanded: false,
+                    explanationOpen: false,
                     time: new Date().toLocaleTimeString()
                 }, ...prev]);
             };
@@ -1762,20 +1808,33 @@ ${mainCode.split('int main() {')[1].split('return 0;')[0].trim()}
                                             <span className="log-message">{log.message}</span>
                                             <span className="log-detail">{log.detail}</span>
                                             {log.codeSnapshot && (
+                                                <div className="code-preview">{log.codeSnapshot}</div>
+                                            )}
+                                            {getExplanation(log.message) && (
                                                 <>
-                                                    <div 
-                                                        className="code-toggle"
-                                                        onClick={() => {
-                                                            setLogs(prev => prev.map(l => 
-                                                                l.id === log.id ? { ...l, expanded: !l.expanded } : l
-                                                            ));
-                                                        }}
-                                                    >
-                                                        <span className={`code-toggle-icon ${log.expanded ? 'expanded' : ''}`}>▶</span>
-                                                        <span>{log.expanded ? 'Hide code' : 'Show code'}</span>
-                                                    </div>
-                                                    {log.expanded && (
-                                                        <div className="code-preview">{log.codeSnapshot}</div>
+                                                    {!log.explanationOpen && (
+                                                        <div 
+                                                            className="explanation-toggle"
+                                                            onClick={() => {
+                                                                setLogs(prev => prev.map(l => 
+                                                                    l.id === log.id ? { ...l, explanationOpen: true } : l
+                                                                ));
+                                                            }}
+                                                        >
+                                                            <span>Click for details</span>
+                                                        </div>
+                                                    )}
+                                                    {log.explanationOpen && (
+                                                        <div 
+                                                            className="explanation-box"
+                                                            onClick={() => {
+                                                                setLogs(prev => prev.map(l => 
+                                                                    l.id === log.id ? { ...l, explanationOpen: false } : l
+                                                                ));
+                                                            }}
+                                                        >
+                                                            {getExplanation(log.message)}
+                                                        </div>
                                                     )}
                                                 </>
                                             )}

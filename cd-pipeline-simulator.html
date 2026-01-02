@@ -1,0 +1,2075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CD Pipeline Simulator</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-panel: #161b22;
+            --bg-input: #0d1117;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-purple: #a371f7;
+            --accent-orange: #d29922;
+            --accent-red: #f85149;
+            --accent-pink: #db61a2;
+            --accent-cyan: #39d4d4;
+            --success-bg: rgba(63, 185, 80, 0.15);
+            --warning-bg: rgba(210, 153, 34, 0.15);
+            --error-bg: rgba(248, 81, 73, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+            gap: 1px;
+            background: var(--border);
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            background: var(--bg-panel);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header h1::before {
+            content: '';
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            border-radius: 6px;
+        }
+
+        .pipeline-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+        }
+
+        .pipeline-icon {
+            color: var(--accent-cyan);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        /* Pipeline Visualization */
+        .pipeline-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-panel);
+            margin: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .pipeline-header {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: var(--bg-input);
+            border-bottom: 1px solid var(--border);
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .pipeline-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-panel);
+            border-radius: 6px 6px 0 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            border: 1px solid var(--border);
+            border-bottom: none;
+            margin-bottom: -1px;
+        }
+
+        .pipeline-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        /* Pipeline Stages */
+        .stages-container {
+            display: flex;
+            gap: 0.5rem;
+            align-items: stretch;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .stage-card {
+            flex: 1;
+            min-width: 140px;
+            background: var(--bg-input);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .stage-card.pending {
+            opacity: 0.5;
+        }
+
+        .stage-card.running {
+            border-color: var(--accent-blue);
+            animation: stagePulse 1.5s ease-in-out infinite;
+        }
+
+        .stage-card.success {
+            border-color: var(--accent-green);
+            background: var(--success-bg);
+        }
+
+        .stage-card.failed {
+            border-color: var(--accent-red);
+            background: var(--error-bg);
+        }
+
+        .stage-card.waiting {
+            border-color: var(--accent-orange);
+            background: var(--warning-bg);
+        }
+
+        @keyframes stagePulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(88, 166, 255, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 15px 5px rgba(88, 166, 255, 0.2);
+            }
+        }
+
+        .stage-icon {
+            font-size: 1.5rem;
+        }
+
+        .stage-name {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+        }
+
+        .stage-status {
+            font-size: 0.7rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-muted);
+        }
+
+        .stage-card.running .stage-status {
+            color: var(--accent-blue);
+        }
+
+        .stage-card.success .stage-status {
+            color: var(--accent-green);
+        }
+
+        .stage-card.failed .stage-status {
+            color: var(--accent-red);
+        }
+
+        .stage-connector {
+            display: flex;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 1.25rem;
+        }
+
+        .stage-connector.active {
+            color: var(--accent-green);
+        }
+
+        /* Environment Cards */
+        .environments-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .env-card {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .env-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .env-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .env-badge {
+            font-size: 0.65rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .env-badge.dev {
+            background: rgba(163, 113, 247, 0.2);
+            color: var(--accent-purple);
+        }
+
+        .env-badge.staging {
+            background: rgba(210, 153, 34, 0.2);
+            color: var(--accent-orange);
+        }
+
+        .env-badge.prod {
+            background: rgba(248, 81, 73, 0.2);
+            color: var(--accent-red);
+        }
+
+        .env-version {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .env-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+
+        .status-dot.healthy {
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        .status-dot.deploying {
+            background: var(--accent-blue);
+            animation: deployPulse 1s ease-in-out infinite;
+        }
+
+        .status-dot.unhealthy {
+            background: var(--accent-red);
+            animation: unhealthyBlink 0.8s ease-in-out infinite;
+        }
+
+        @keyframes deployPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes unhealthyBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Log Output */
+        .log-output {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            line-height: 1.6;
+            max-height: 200px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        .log-line {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .log-line .timestamp {
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .log-line .level {
+            flex-shrink: 0;
+            width: 50px;
+        }
+
+        .log-line .level.info {
+            color: var(--accent-blue);
+        }
+
+        .log-line .level.success {
+            color: var(--accent-green);
+        }
+
+        .log-line .level.warning {
+            color: var(--accent-orange);
+        }
+
+        .log-line .level.error {
+            color: var(--accent-red);
+        }
+
+        .log-line .message {
+            color: var(--text-primary);
+        }
+
+        /* Actions Panel */
+        .actions-panel {
+            padding: 1rem;
+            background: var(--bg-panel);
+            margin: 0 1rem 1rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover:not(:disabled) {
+            border-color: var(--accent-blue);
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .action-btn .icon {
+            font-size: 1.5rem;
+        }
+
+        .action-btn .auto-badge {
+            font-size: 0.6rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            background: rgba(57, 212, 212, 0.2);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(57, 212, 212, 0.3);
+            margin-top: 0.25rem;
+        }
+
+        .action-btn .manual-badge {
+            font-size: 0.6rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            background: rgba(210, 153, 34, 0.2);
+            color: var(--accent-orange);
+            border: 1px solid rgba(210, 153, 34, 0.3);
+            margin-top: 0.25rem;
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            border-color: transparent;
+        }
+
+        .action-btn.primary:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .action-btn.success {
+            border-color: var(--accent-green);
+            background: var(--success-bg);
+        }
+
+        .action-btn.warning {
+            border-color: var(--accent-orange);
+            background: var(--warning-bg);
+        }
+
+        .action-btn.danger {
+            border-color: var(--accent-red);
+            background: var(--error-bg);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(248, 81, 73, 0);
+            }
+        }
+
+        /* Sidebars */
+        .sidebar-left,
+        .sidebar-right {
+            background: var(--bg-panel);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .sidebar-section {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .sidebar-section h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        /* Progress */
+        .progress-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .progress-bar-wrapper {
+            background: var(--bg-input);
+            border-radius: 999px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-green));
+            border-radius: 999px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Checklist */
+        .checklist {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+        }
+
+        .checklist-item.completed {
+            color: var(--accent-green);
+            background: var(--success-bg);
+        }
+
+        .checklist-item.current {
+            color: var(--accent-blue);
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .check-icon {
+            width: 18px;
+            height: 18px;
+            border: 2px solid currentColor;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+
+        .checklist-item.completed .check-icon {
+            background: var(--accent-green);
+            border-color: var(--accent-green);
+            color: var(--bg-dark);
+        }
+
+        /* Activity Log */
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            min-height: 0;
+        }
+
+        .log-container h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            position: sticky;
+            top: 0;
+            background: var(--bg-panel);
+            padding: 0.25rem 0;
+        }
+
+        .log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .log-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: var(--bg-input);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            animation: slideIn 0.3s ease;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .log-item:hover {
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .log-item .click-hint {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            margin-top: 0.35rem;
+        }
+
+        .log-description {
+            margin-top: 0.5rem;
+            padding: 0.75rem;
+            background: var(--bg-panel);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            line-height: 1.5;
+            color: var(--text-primary);
+            animation: fadeIn 0.2s ease;
+        }
+
+        .log-description::before {
+            content: '💡 ';
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .log-item.processing {
+            border: 1px solid var(--accent-blue);
+            animation: processPulse 1s ease-in-out infinite;
+        }
+
+        .log-item.approval-needed {
+            border: 1px solid var(--accent-orange);
+            animation: approvalPulse 1s ease-in-out infinite;
+        }
+
+        .log-item.alert {
+            border: 1px solid var(--accent-red);
+            animation: alertPulse 1s ease-in-out infinite;
+        }
+
+        @keyframes processPulse {
+            0%, 100% {
+                border-color: var(--accent-blue);
+                box-shadow: 0 0 5px rgba(88, 166, 255, 0.3);
+            }
+            50% {
+                border-color: var(--accent-cyan);
+                box-shadow: 0 0 15px rgba(57, 212, 212, 0.5);
+            }
+        }
+
+        @keyframes approvalPulse {
+            0%, 100% {
+                border-color: var(--accent-orange);
+                box-shadow: 0 0 5px rgba(210, 153, 34, 0.3);
+            }
+            50% {
+                border-color: var(--accent-pink);
+                box-shadow: 0 0 15px rgba(210, 153, 34, 0.5);
+            }
+        }
+
+        @keyframes alertPulse {
+            0%, 100% {
+                border-color: var(--accent-red);
+                box-shadow: 0 0 5px rgba(248, 81, 73, 0.3);
+            }
+            50% {
+                border-color: var(--accent-orange);
+                box-shadow: 0 0 15px rgba(248, 81, 73, 0.5);
+            }
+        }
+
+        .log-icon {
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .log-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .log-message {
+            color: var(--text-primary);
+        }
+
+        .log-detail {
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .log-location {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.65rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-top: 0.35rem;
+            width: fit-content;
+        }
+
+        .log-location.pipeline {
+            background: rgba(57, 212, 212, 0.15);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(57, 212, 212, 0.3);
+        }
+
+        .log-location.staging {
+            background: rgba(210, 153, 34, 0.15);
+            color: var(--accent-orange);
+            border: 1px solid rgba(210, 153, 34, 0.3);
+        }
+
+        .log-location.production {
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--accent-red);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+        }
+
+        .log-location.github {
+            background: rgba(88, 166, 255, 0.15);
+            color: var(--accent-blue);
+            border: 1px solid rgba(88, 166, 255, 0.3);
+        }
+
+        /* Deployment Strategy Info */
+        .strategy-info {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .strategy-name {
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            margin-bottom: 0.25rem;
+        }
+
+        .strategy-desc {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Status Bar */
+        .status-bar {
+            grid-column: 1 / -1;
+            background: var(--bg-panel);
+            padding: 0.5rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border);
+            font-size: 0.75rem;
+        }
+
+        .status-left,
+        .status-right {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.green {
+            background: var(--accent-green);
+        }
+
+        .status-dot.orange {
+            background: var(--accent-orange);
+        }
+
+        .status-dot.red {
+            background: var(--accent-red);
+            animation: unhealthyBlink 0.8s ease-in-out infinite;
+        }
+
+        .status-dot.blue {
+            background: var(--accent-blue);
+            animation: deployPulse 1s ease-in-out infinite;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            max-width: 500px;
+            width: 90%;
+            animation: scaleIn 0.2s ease;
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .modal p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 1.25rem;
+            white-space: pre-line;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+        }
+
+        .modal-btn {
+            padding: 0.625rem 1.25rem;
+            border-radius: 6px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .modal-btn.cancel {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .modal-btn.cancel:hover {
+            border-color: var(--text-muted);
+        }
+
+        .modal-btn.confirm {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            border: none;
+            color: var(--bg-dark);
+        }
+
+        .modal-btn.confirm:hover {
+            opacity: 0.9;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.875rem;
+            z-index: 101;
+            animation: toastIn 0.3s ease;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .toast.success {
+            border-color: var(--accent-green);
+            background: var(--success-bg);
+        }
+
+        .toast.error {
+            border-color: var(--accent-red);
+            background: var(--error-bg);
+        }
+
+        .toast.info {
+            border-color: var(--accent-blue);
+            background: rgba(88, 166, 255, 0.15);
+        }
+
+        /* Celebration */
+        .celebration {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 102;
+        }
+
+        .confetti {
+            position: absolute;
+            top: -10px;
+            width: 10px;
+            height: 10px;
+            animation: confettiFall 3s ease-out forwards;
+        }
+
+        @keyframes confettiFall {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        /* Metrics Dashboard */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+
+        .metric-item {
+            background: var(--bg-input);
+            border-radius: 6px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+        }
+
+        .metric-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--text-muted);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const WORKFLOW_STEPS = [
+            { id: 'trigger_pipeline', label: 'Trigger pipeline', icon: '🚀' },
+            { id: 'build', label: 'Build stage', icon: '🔨' },
+            { id: 'test', label: 'Test stage', icon: '🧪' },
+            { id: 'deploy_staging', label: 'Deploy to staging', icon: '📦' },
+            { id: 'staging_tests', label: 'Run staging tests', icon: '🔍' },
+            { id: 'approval', label: 'Get approval', icon: '✅' },
+            { id: 'deploy_prod', label: 'Deploy to production', icon: '🌐' },
+            { id: 'health_check', label: 'Health check passes', icon: '💚' },
+            { id: 'complete', label: 'Deployment complete', icon: '🎉' },
+        ];
+
+        const INITIAL_ENVIRONMENTS = {
+            dev: { version: 'v1.2.3', status: 'healthy', lastDeploy: '2 hours ago' },
+            staging: { version: 'v1.2.3', status: 'healthy', lastDeploy: '1 hour ago' },
+            prod: { version: 'v1.2.2', status: 'healthy', lastDeploy: '3 days ago' },
+        };
+
+        function App() {
+            const [completedSteps, setCompletedSteps] = useState([]);
+            const [currentStep, setCurrentStep] = useState(0);
+            const [logs, setLogs] = useState([]);
+            const [modal, setModal] = useState(null);
+            const [toast, setToast] = useState(null);
+            const [showCelebration, setShowCelebration] = useState(false);
+            
+            // Pipeline state
+            const [pipelineRunning, setPipelineRunning] = useState(false);
+            const [pipelineStatus, setPipelineStatus] = useState('idle'); // idle, running, success, failed
+            const [buildVersion, setBuildVersion] = useState('v1.2.4');
+            
+            // Stage states: pending, running, success, failed, waiting
+            const [stages, setStages] = useState({
+                build: 'pending',
+                test: 'pending',
+                staging: 'pending',
+                approval: 'pending',
+                production: 'pending',
+            });
+            
+            // Environment state
+            const [environments, setEnvironments] = useState(INITIAL_ENVIRONMENTS);
+            
+            // Approval state
+            const [awaitingApproval, setAwaitingApproval] = useState(false);
+            const [approvalCountdown, setApprovalCountdown] = useState(null);
+            
+            // Health check state
+            const [healthCheckPending, setHealthCheckPending] = useState(false);
+            const [healthCheckFailed, setHealthCheckFailed] = useState(false);
+            const [healthCheckFailedUsed, setHealthCheckFailedUsed] = useState(false);
+            
+            // Rollback state
+            const [canRollback, setCanRollback] = useState(false);
+            const [previousVersion, setPreviousVersion] = useState('v1.2.2');
+            
+            // Console logs
+            const [consoleLogs, setConsoleLogs] = useState([]);
+            const logEndRef = useRef(null);
+
+            // Auto-scroll console logs
+            useEffect(() => {
+                logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }, [consoleLogs]);
+
+            const addConsoleLog = (level, message) => {
+                const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+                setConsoleLogs(prev => [...prev, { timestamp, level, message }]);
+            };
+
+            const addLog = (icon, message, detail, location, description = '') => {
+                const newLog = {
+                    id: Date.now(),
+                    icon,
+                    message,
+                    detail,
+                    location,
+                    description,
+                    showDescription: false,
+                };
+                setLogs(prev => [newLog, ...prev]);
+            };
+
+            const toggleLogDescription = (logId) => {
+                setLogs(prev => prev.map(log => 
+                    log.id === logId 
+                        ? { ...log, showDescription: !log.showDescription }
+                        : { ...log, showDescription: false }
+                ));
+            };
+
+            const showToast = (message, type = 'info') => {
+                setToast({ message, type });
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            const completeStep = (stepId) => {
+                if (!completedSteps.includes(stepId)) {
+                    setCompletedSteps(prev => [...prev, stepId]);
+                    const stepIndex = WORKFLOW_STEPS.findIndex(s => s.id === stepId);
+                    if (stepIndex >= currentStep) {
+                        setCurrentStep(stepIndex + 1);
+                    }
+                }
+            };
+
+            const progressPercent = (completedSteps.length / WORKFLOW_STEPS.length) * 100;
+
+            // Approval countdown
+            useEffect(() => {
+                if (approvalCountdown === null) return;
+                
+                if (approvalCountdown > 0) {
+                    const timer = setTimeout(() => {
+                        setApprovalCountdown(approvalCountdown - 1);
+                    }, 1000);
+                    return () => clearTimeout(timer);
+                } else {
+                    // Approval received
+                    setAwaitingApproval(false);
+                    setApprovalCountdown(null);
+                    setStages(prev => ({ ...prev, approval: 'success' }));
+                    addLog('✅', 'PR approved by tech lead', '@sarah-tech approved', 'github', 'A senior developer reviewed your changes and approved them. This is like getting a thumbs up that your code is safe to go live.');
+                    addConsoleLog('success', 'Approval received from @sarah-tech');
+                    completeStep('approval');
+                    showToast('Deployment approved!', 'success');
+                }
+            }, [approvalCountdown]);
+
+            const triggerPipeline = () => {
+                setModal({
+                    title: '🚀 Trigger CI/CD Pipeline',
+                    message: `WHY: When code merges to main, the CI/CD pipeline automatically starts. This ensures every change goes through the same quality gates: building, testing, and controlled deployment. No manual deployments means fewer human errors.
+
+HOW: In real teams, pipelines trigger automatically on merge. Tools like GitHub Actions, Jenkins, or CircleCI watch your repository. When main changes, they spin up fresh containers and start the build process.
+
+NOTE: In this simulator, you click buttons to advance. In real pipelines, everything through staging happens automatically. The only true manual step is the approval gate.`,
+                    input: false,
+                    confirmText: 'Start Pipeline',
+                    onConfirm: () => {
+                        setPipelineRunning(true);
+                        setPipelineStatus('running');
+                        addLog('🚀', 'Pipeline triggered', `Commit: abc123 → main`, 'github', 'Your code was merged into the main branch. This automatically started the deployment pipeline. Think of it like pushing a "go" button that kicks off a series of automated steps.');
+                        addConsoleLog('info', 'Pipeline triggered for commit abc123 (auto-triggered on merge)');
+                        addConsoleLog('info', 'In real pipelines, build/test/staging deploy automatically');
+                        completeStep('trigger_pipeline');
+                        showToast('Pipeline started!', 'success');
+                        setModal(null);
+                        
+
+                    }
+                });
+            };
+
+            const runBuildStage = () => {
+                if (!pipelineRunning) {
+                    showToast('Trigger the pipeline first!', 'error');
+                    return;
+                }
+                if (stages.build === 'success') {
+                    showToast('Build already completed', 'info');
+                    return;
+                }
+                
+                setModal({
+                    title: '🔨 Build Stage',
+                    message: `WHY: The build stage compiles your code, resolves dependencies, and creates deployable artifacts. This catches compile errors, missing dependencies, and configuration issues before they reach any environment.
+
+HOW: The pipeline runs commands like "npm install" and "npm run build". It produces artifacts: compiled code, Docker images, or deployment packages. These artifacts get versioned and stored for later stages.`,
+                    input: false,
+                    confirmText: 'Run Build',
+                    onConfirm: () => {
+                        setStages(prev => ({ ...prev, build: 'running' }));
+                        addLog('🔨', 'Build stage started', `Building ${buildVersion} (auto)`, 'pipeline', 'The pipeline is now compiling your code and downloading any libraries it needs. This turns your source code into a package that can run on servers.');
+                        addConsoleLog('info', '[AUTO] Build stage starting...');
+                        setModal(null);
+                        
+                        // Simulate build progress
+                        setTimeout(() => addConsoleLog('info', 'npm install'), 300);
+                        setTimeout(() => addConsoleLog('info', 'Installing dependencies... (243 packages)'), 800);
+                        setTimeout(() => addConsoleLog('info', 'npm run build'), 1500);
+                        setTimeout(() => addConsoleLog('info', 'Compiling TypeScript...'), 2000);
+                        setTimeout(() => addConsoleLog('info', 'Building production bundle...'), 2500);
+                        setTimeout(() => {
+                            addConsoleLog('success', `Build successful! Artifact: app-${buildVersion}.tar.gz`);
+                            setStages(prev => ({ ...prev, build: 'success' }));
+                            addLog('✅', 'Build stage passed', '43s', 'pipeline', 'Your code compiled successfully with no errors. The pipeline created a deployable package. If there were syntax errors or missing files, it would have failed here.');
+                            completeStep('build');
+                            showToast('Build completed successfully!', 'success');
+                        }, 3500);
+                    }
+                });
+            };
+
+            const runTestStage = () => {
+                if (stages.build !== 'success') {
+                    showToast('Complete build stage first!', 'error');
+                    return;
+                }
+                if (stages.test === 'success') {
+                    showToast('Tests already passed', 'info');
+                    return;
+                }
+                
+                setModal({
+                    title: '🧪 Test Stage',
+                    message: `WHY: Automated tests catch bugs before they reach users. Unit tests verify individual functions. Integration tests check component interactions. This stage is your safety net. If tests fail, the pipeline stops and production stays safe.
+
+HOW: The pipeline runs your test suite: "npm test". It may also run linting, type checking, security scans, and code coverage checks. Many teams require 80%+ coverage before allowing deployment.`,
+                    input: false,
+                    confirmText: 'Run Tests',
+                    onConfirm: () => {
+                        setStages(prev => ({ ...prev, test: 'running' }));
+                        addLog('🧪', 'Test stage started', 'Running test suite (auto)', 'pipeline', 'Automated tests are now checking your code. These tests were written by developers to make sure the app works correctly. They run every time code is deployed.');
+                        addConsoleLog('info', '[AUTO] Test stage starting...');
+                        setModal(null);
+                        
+                        setTimeout(() => addConsoleLog('info', 'npm test'), 300);
+                        setTimeout(() => addConsoleLog('info', 'Running unit tests...'), 700);
+                        setTimeout(() => addConsoleLog('info', '✓ UserService (12 tests)'), 1000);
+                        setTimeout(() => addConsoleLog('info', '✓ AuthController (8 tests)'), 1500);
+                        setTimeout(() => addConsoleLog('info', '✓ PaymentProcessor (15 tests)'), 2000);
+                        setTimeout(() => addConsoleLog('info', 'Running integration tests...'), 2500);
+                        setTimeout(() => addConsoleLog('info', '✓ API endpoints (23 tests)'), 3000);
+                        setTimeout(() => {
+                            addConsoleLog('success', 'All 58 tests passed. Coverage: 87%');
+                            setStages(prev => ({ ...prev, test: 'success' }));
+                            addLog('✅', 'Test stage passed', '58 tests, 87% coverage', 'pipeline', 'All 58 automated tests passed. 87% coverage means tests check most of your code. If any test failed, the pipeline would stop here to prevent bugs from reaching users.');
+                            completeStep('test');
+                            showToast('All tests passed!', 'success');
+                        }, 3500);
+                    }
+                });
+            };
+
+            const deployToStaging = () => {
+                if (stages.test !== 'success') {
+                    showToast('Complete test stage first!', 'error');
+                    return;
+                }
+                if (stages.staging === 'success') {
+                    showToast('Already deployed to staging', 'info');
+                    return;
+                }
+                
+                setModal({
+                    title: '📦 Deploy to Staging',
+                    message: `WHY: Staging is a production-like environment for final testing. It mirrors production but is safe to break. QA teams test here. Product managers review features. This catches environment-specific bugs that unit tests miss.
+
+HOW: The pipeline deploys your artifact to staging servers. It may use Kubernetes, AWS ECS, or traditional servers. Environment variables configure the app for staging mode. Database migrations run automatically.`,
+                    input: false,
+                    confirmText: 'Deploy to Staging',
+                    onConfirm: () => {
+                        setStages(prev => ({ ...prev, staging: 'running' }));
+                        setEnvironments(prev => ({
+                            ...prev,
+                            staging: { ...prev.staging, status: 'deploying' }
+                        }));
+                        addLog('📦', 'Deploying to staging', `${buildVersion} → staging (auto)`, 'staging', 'Your code is being installed on the staging server. Staging is a copy of production where you can test safely. Real users never see the staging environment.');
+                        addConsoleLog('info', '[AUTO] Deploying to staging environment...');
+                        setModal(null);
+                        
+                        setTimeout(() => addConsoleLog('info', 'Pulling image from registry...'), 500);
+                        setTimeout(() => addConsoleLog('info', 'Rolling update: 0/3 pods ready'), 1000);
+                        setTimeout(() => addConsoleLog('info', 'Rolling update: 1/3 pods ready'), 1500);
+                        setTimeout(() => addConsoleLog('info', 'Rolling update: 2/3 pods ready'), 2000);
+                        setTimeout(() => addConsoleLog('info', 'Rolling update: 3/3 pods ready'), 2500);
+                        setTimeout(() => {
+                            addConsoleLog('success', 'Staging deployment complete');
+                            setStages(prev => ({ ...prev, staging: 'success' }));
+                            setEnvironments(prev => ({
+                                ...prev,
+                                staging: { version: buildVersion, status: 'healthy', lastDeploy: 'just now' }
+                            }));
+                            addLog('✅', 'Staging deployment complete', `staging.example.com`, 'staging', 'Your code is now running on the staging server. QA teams and product managers can test the new features here before they go to real users.');
+                            completeStep('deploy_staging');
+                            showToast('Deployed to staging!', 'success');
+                            
+                            // Run staging tests automatically
+                            setTimeout(() => {
+                                addConsoleLog('info', 'Running smoke tests on staging...');
+                                addLog('🔍', 'Running staging smoke tests', 'Verifying deployment', 'staging', 'Quick tests are checking that the app actually starts and responds. These "smoke tests" catch obvious problems like the server not starting or the database not connecting.');
+                            }, 1000);
+                            
+                            setTimeout(() => {
+                                addConsoleLog('success', 'Staging smoke tests passed');
+                                addLog('✅', 'Staging tests passed', 'All endpoints responding', 'staging', 'The staging server is healthy. All the main pages and API endpoints are working. The app is ready for someone to approve the production deployment.');
+                                completeStep('staging_tests');
+                                showToast('Staging tests passed!', 'success');
+                            }, 3000);
+                        }, 3000);
+                    }
+                });
+            };
+
+            const requestApproval = () => {
+                if (stages.staging !== 'success' || !completedSteps.includes('staging_tests')) {
+                    showToast('Deploy and test staging first!', 'error');
+                    return;
+                }
+                if (stages.approval === 'success') {
+                    showToast('Already approved', 'info');
+                    return;
+                }
+                
+                setModal({
+                    title: '✅ Request Production Approval',
+                    message: `WHY: Production deployments need human oversight. A tech lead or release manager reviews the changes, checks staging, and gives the green light. This prevents rushed or accidental deployments. Many teams require two approvers.
+
+HOW: The pipeline pauses at a "gate". It notifies approvers via Slack or email. Approvers review the PR, check staging, then click "Approve" in the pipeline UI. Some teams auto-approve during business hours.
+
+NOTE: This is the ONLY required manual step in most CD pipelines. Everything before this runs automatically. After approval, production deployment also runs automatically.`,
+                    input: false,
+                    confirmText: 'Request Approval',
+                    onConfirm: () => {
+                        setStages(prev => ({ ...prev, approval: 'waiting' }));
+                        setAwaitingApproval(true);
+                        setApprovalCountdown(5);
+                        addLog('⏳', 'Awaiting approval', '@sarah-tech notified (MANUAL GATE)', 'github', 'The pipeline is paused, waiting for a human to approve. This is the safety checkpoint. A tech lead will check that everything looks good before letting the code go to real users.');
+                        addConsoleLog('warning', '[MANUAL] Pipeline paused - awaiting human approval...');
+                        showToast('Approval requested', 'info');
+                        setModal(null);
+                    }
+                });
+            };
+
+            const deployToProduction = () => {
+                if (stages.approval !== 'success') {
+                    showToast('Get approval first!', 'error');
+                    return;
+                }
+                if (stages.production === 'success') {
+                    showToast('Already deployed to production', 'info');
+                    return;
+                }
+                
+                setModal({
+                    title: '🌐 Deploy to Production',
+                    message: `WHY: This is the moment of truth. Your code goes live to real users. Production deployments use strategies to minimize risk: rolling updates replace instances gradually, blue-green switches traffic instantly, canary releases test with a small percentage of users first.
+
+HOW: The pipeline deploys using your chosen strategy. Kubernetes performs rolling updates by default. Health checks verify each new instance before routing traffic. If checks fail, the deployment halts automatically.`,
+                    input: false,
+                    confirmText: 'Deploy to Production',
+                    onConfirm: () => {
+                        setStages(prev => ({ ...prev, production: 'running' }));
+                        setPreviousVersion(environments.prod.version);
+                        setEnvironments(prev => ({
+                            ...prev,
+                            prod: { ...prev.prod, status: 'deploying' }
+                        }));
+                        addLog('🌐', 'Production deployment started', `${buildVersion} → production (auto after approval)`, 'production', 'Your code is now being deployed to the real servers that users access. This uses a "rolling update" which means new servers start up before old ones shut down, so users never see downtime.');
+                        addConsoleLog('info', '[AUTO] Starting production deployment after approval...');
+                        addConsoleLog('info', 'Strategy: Rolling Update');
+                        setModal(null);
+                        
+                        setTimeout(() => addConsoleLog('info', 'Rolling update: 0/5 pods ready'), 500);
+                        setTimeout(() => addConsoleLog('info', 'Rolling update: 1/5 pods ready'), 1000);
+                        setTimeout(() => addConsoleLog('info', 'Rolling update: 2/5 pods ready'), 1500);
+                        setTimeout(() => addConsoleLog('info', 'Rolling update: 3/5 pods ready'), 2000);
+                        setTimeout(() => addConsoleLog('info', 'Rolling update: 4/5 pods ready'), 2500);
+                        setTimeout(() => addConsoleLog('info', 'Rolling update: 5/5 pods ready'), 3000);
+                        setTimeout(() => {
+                            setStages(prev => ({ ...prev, production: 'success' }));
+                            setEnvironments(prev => ({
+                                ...prev,
+                                prod: { version: buildVersion, status: 'healthy', lastDeploy: 'just now' }
+                            }));
+                            addLog('✅', 'Production deployment complete', `www.example.com`, 'production', 'All servers are now running your new code. The deployment finished without errors. But we are not done yet. Health checks will verify everything is actually working.');
+                            addConsoleLog('success', 'Production deployment complete');
+                            completeStep('deploy_prod');
+                            showToast('Deployed to production!', 'success');
+                            setHealthCheckPending(true);
+                            setCanRollback(true);
+                            
+                            // Start health check
+                            setTimeout(() => {
+                                addConsoleLog('info', 'Running post-deployment health checks...');
+                                addLog('💚', 'Running health checks', 'Verifying deployment', 'production', 'The system is checking if your app is healthy. It looks at things like: Can users log in? Are pages loading fast? Are there error messages? This catches problems your tests might have missed.');
+                            }, 1000);
+                            
+                            // Maybe fail health check (learning opportunity)
+                            setTimeout(() => {
+                                if (!healthCheckFailedUsed && Math.random() < 0.4) {
+                                    // Ask if they want to practice rollback
+                                    setModal({
+                                        title: '⚠️ Health Check Failure Detected!',
+                                        message: `LEARNING OPPORTUNITY: A health check is failing! Error rate is spiking on the /api/users endpoint.
+
+This happens in real deployments. Would you like to practice the rollback procedure? You will need to decide whether to rollback or investigate.
+
+This is optional. You can skip to see a successful deployment.`,
+                                        input: false,
+                                        cancelText: 'Skip This Time',
+                                        confirmText: 'Yes, Practice Rollback!',
+                                        onConfirm: () => {
+                                            setHealthCheckFailed(true);
+                                            setHealthCheckFailedUsed(true);
+                                            setEnvironments(prev => ({
+                                                ...prev,
+                                                prod: { ...prev.prod, status: 'unhealthy' }
+                                            }));
+                                            addConsoleLog('error', 'Health check FAILED: /api/users returning 500');
+                                            addConsoleLog('error', 'Error rate: 23% (threshold: 1%)');
+                                            addLog('🚨', 'Health check failing!', 'Error rate spike detected', 'production', 'Something is wrong! Users are getting errors. This can happen when code works in testing but breaks with real data or traffic. You need to decide: fix it quickly or rollback to the old version.');
+                                            showToast('Health check failing! Consider rollback.', 'error');
+                                            setModal(null);
+                                        },
+                                        onCancel: () => {
+                                            setHealthCheckFailedUsed(true);
+                                            completeHealthCheck();
+                                            setModal(null);
+                                        }
+                                    });
+                                } else {
+                                    completeHealthCheck();
+                                }
+                            }, 3000);
+                        }, 3500);
+                    }
+                });
+            };
+
+            const completeHealthCheck = () => {
+                setHealthCheckPending(false);
+                setHealthCheckFailed(false);
+                addConsoleLog('success', 'All health checks passing');
+                addConsoleLog('success', 'Error rate: 0.02% (normal)');
+                addConsoleLog('success', 'Response time: 45ms (normal)');
+                addLog('💚', 'Health checks passing', 'All systems nominal', 'production', 'Everything is working well. Error rates are low, pages load fast, and users can do what they need. Your deployment is successful!');
+                completeStep('health_check');
+                showToast('Health checks passed!', 'success');
+                
+                // Complete deployment
+                setTimeout(() => {
+                    setPipelineStatus('success');
+                    setPipelineRunning(false);
+                    addLog('🎉', 'Deployment complete!', `${buildVersion} is live`, 'production', 'Congratulations! Your code went from a merge to running in production. Real users are now using your changes. The whole process was mostly automatic, with just one human approval step.');
+                    addConsoleLog('success', `=== Deployment ${buildVersion} Complete ===`);
+                    completeStep('complete');
+                    showToast('Deployment successful!', 'success');
+                    setShowCelebration(true);
+                    setTimeout(() => setShowCelebration(false), 3000);
+                }, 1000);
+            };
+
+            const rollback = () => {
+                if (!canRollback) {
+                    showToast('Nothing to rollback', 'error');
+                    return;
+                }
+                
+                setModal({
+                    title: '⏪ Rollback to Previous Version',
+                    message: `WHY: When deployments cause problems, rollback is your emergency exit. It reverts production to the last known good version. Fast rollbacks minimize user impact. This is why you keep previous versions ready.
+
+HOW: Rollback redeploys the previous artifact. With containers, it is just switching the image tag. With rolling updates, it gradually replaces new pods with old ones. Traffic shifts back automatically.
+
+NOTE: Rollback is always a MANUAL decision. Automated health checks can alert you to problems, but a human decides whether to rollback or investigate further.`,
+                    input: false,
+                    confirmText: `Rollback to ${previousVersion}`,
+                    onConfirm: () => {
+                        setEnvironments(prev => ({
+                            ...prev,
+                            prod: { ...prev.prod, status: 'deploying' }
+                        }));
+                        addLog('⏪', 'Rollback initiated', `${buildVersion} → ${previousVersion} (MANUAL)`, 'production', 'You chose to revert to the previous version. The system is switching all servers back to the old code. This is the fastest way to stop users from experiencing problems.');
+                        addConsoleLog('warning', `[MANUAL] ROLLBACK: Reverting to ${previousVersion}`);
+                        setModal(null);
+                        
+                        setTimeout(() => addConsoleLog('info', 'Rolling back: 0/5 pods reverted'), 500);
+                        setTimeout(() => addConsoleLog('info', 'Rolling back: 2/5 pods reverted'), 1000);
+                        setTimeout(() => addConsoleLog('info', 'Rolling back: 4/5 pods reverted'), 1500);
+                        setTimeout(() => addConsoleLog('info', 'Rolling back: 5/5 pods reverted'), 2000);
+                        setTimeout(() => {
+                            setEnvironments(prev => ({
+                                ...prev,
+                                prod: { version: previousVersion, status: 'healthy', lastDeploy: 'just now' }
+                            }));
+                            setHealthCheckFailed(false);
+                            setHealthCheckPending(false);
+                            setCanRollback(false);
+                            addConsoleLog('success', `Rollback complete. Running ${previousVersion}`);
+                            addLog('✅', 'Rollback complete', `Now running ${previousVersion}`, 'production', 'The rollback finished. Users are back on the stable version. Now you can investigate what went wrong, fix the bug, and try again through the pipeline.');
+                            showToast('Rollback successful!', 'success');
+                            
+                            // Show next steps
+                            setTimeout(() => {
+                                setModal({
+                                    title: '🔧 Post-Rollback Actions',
+                                    message: `Good work! The rollback succeeded and users are no longer affected.
+
+In a real scenario, your next steps would be:
+1. Investigate the root cause
+2. Fix the bug in a new branch
+3. Add tests to prevent regression  
+4. Re-deploy through the full pipeline
+
+For this simulation, click Reset to try the pipeline again.`,
+                                    input: false,
+                                    hideCancel: true,
+                                    confirmText: 'Got It',
+                                    onConfirm: () => setModal(null)
+                                });
+                            }, 1000);
+                        }, 2500);
+                    }
+                });
+            };
+
+            const resetSimulation = () => {
+                setCompletedSteps([]);
+                setCurrentStep(0);
+                setLogs([]);
+                setPipelineRunning(false);
+                setPipelineStatus('idle');
+                setStages({
+                    build: 'pending',
+                    test: 'pending',
+                    staging: 'pending',
+                    approval: 'pending',
+                    production: 'pending',
+                });
+                setEnvironments(INITIAL_ENVIRONMENTS);
+                setAwaitingApproval(false);
+                setApprovalCountdown(null);
+                setHealthCheckPending(false);
+                setHealthCheckFailed(false);
+                setHealthCheckFailedUsed(false);
+                setCanRollback(false);
+                setConsoleLogs([]);
+                showToast('Simulation reset!', 'info');
+            };
+
+            return (
+                <div className="app-container">
+                    {/* Header */}
+                    <header className="header">
+                        <h1>CD Pipeline Simulator</h1>
+                        <div className="pipeline-status">
+                            <span className="pipeline-icon">⚡</span>
+                            <span>Pipeline: {pipelineStatus === 'idle' ? 'Ready' : pipelineStatus === 'running' ? 'Running' : pipelineStatus === 'success' ? 'Complete' : 'Failed'}</span>
+                            {pipelineRunning && <span className="spinner"></span>}
+                        </div>
+                    </header>
+
+                    {/* Left Sidebar */}
+                    <aside className="sidebar-left">
+                        <div className="sidebar-section">
+                            <h3>Progress</h3>
+                            <div className="progress-container">
+                                <div className="progress-bar-wrapper">
+                                    <div 
+                                        className="progress-bar" 
+                                        style={{ width: `${progressPercent}%` }}
+                                    />
+                                </div>
+                                <div className="progress-label">
+                                    <span>Pipeline Steps</span>
+                                    <span>{completedSteps.length}/{WORKFLOW_STEPS.length}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="sidebar-section" style={{ flex: 1, overflow: 'auto' }}>
+                            <h3>Workflow Checklist</h3>
+                            <div className="checklist">
+                                {WORKFLOW_STEPS.map((step, index) => (
+                                    <div 
+                                        key={step.id}
+                                        className={`checklist-item ${
+                                            completedSteps.includes(step.id) ? 'completed' : 
+                                            index === currentStep ? 'current' : ''
+                                        }`}
+                                    >
+                                        <span className="check-icon">
+                                            {completedSteps.includes(step.id) ? '✓' : step.icon}
+                                        </span>
+                                        <span>{step.label}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="sidebar-section">
+                            <h3>Deployment Strategy</h3>
+                            <div className="strategy-info">
+                                <div className="strategy-name">Rolling Update</div>
+                                <div className="strategy-desc">
+                                    Gradually replaces instances. Zero downtime. Auto-rollback on failure.
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* Main Content */}
+                    <main className="main-content">
+                        <div className="pipeline-container">
+                            <div className="pipeline-header">
+                                <div className="pipeline-tab">
+                                    <span>🔄</span>
+                                    <span>Pipeline #{Math.floor(Math.random() * 900) + 100}</span>
+                                </div>
+                            </div>
+                            <div className="pipeline-body">
+                                {/* Pipeline Stages */}
+                                <div className="stages-container">
+                                    <div className={`stage-card ${stages.build}`}>
+                                        <span className="stage-icon">🔨</span>
+                                        <span className="stage-name">Build</span>
+                                        <span className="stage-status">
+                                            {stages.build === 'pending' && 'Waiting'}
+                                            {stages.build === 'running' && <><span className="spinner"></span> Running</>}
+                                            {stages.build === 'success' && '✓ Passed'}
+                                            {stages.build === 'failed' && '✗ Failed'}
+                                        </span>
+                                    </div>
+                                    <div className={`stage-connector ${stages.build === 'success' ? 'active' : ''}`}>→</div>
+                                    
+                                    <div className={`stage-card ${stages.test}`}>
+                                        <span className="stage-icon">🧪</span>
+                                        <span className="stage-name">Test</span>
+                                        <span className="stage-status">
+                                            {stages.test === 'pending' && 'Waiting'}
+                                            {stages.test === 'running' && <><span className="spinner"></span> Running</>}
+                                            {stages.test === 'success' && '✓ Passed'}
+                                            {stages.test === 'failed' && '✗ Failed'}
+                                        </span>
+                                    </div>
+                                    <div className={`stage-connector ${stages.test === 'success' ? 'active' : ''}`}>→</div>
+                                    
+                                    <div className={`stage-card ${stages.staging}`}>
+                                        <span className="stage-icon">📦</span>
+                                        <span className="stage-name">Staging</span>
+                                        <span className="stage-status">
+                                            {stages.staging === 'pending' && 'Waiting'}
+                                            {stages.staging === 'running' && <><span className="spinner"></span> Deploying</>}
+                                            {stages.staging === 'success' && '✓ Deployed'}
+                                            {stages.staging === 'failed' && '✗ Failed'}
+                                        </span>
+                                    </div>
+                                    <div className={`stage-connector ${stages.staging === 'success' ? 'active' : ''}`}>→</div>
+                                    
+                                    <div className={`stage-card ${stages.approval}`}>
+                                        <span className="stage-icon">✅</span>
+                                        <span className="stage-name">Approval</span>
+                                        <span className="stage-status">
+                                            {stages.approval === 'pending' && 'Waiting'}
+                                            {stages.approval === 'waiting' && `⏳ ${approvalCountdown}s`}
+                                            {stages.approval === 'success' && '✓ Approved'}
+                                        </span>
+                                    </div>
+                                    <div className={`stage-connector ${stages.approval === 'success' ? 'active' : ''}`}>→</div>
+                                    
+                                    <div className={`stage-card ${stages.production}`}>
+                                        <span className="stage-icon">🌐</span>
+                                        <span className="stage-name">Production</span>
+                                        <span className="stage-status">
+                                            {stages.production === 'pending' && 'Waiting'}
+                                            {stages.production === 'running' && <><span className="spinner"></span> Deploying</>}
+                                            {stages.production === 'success' && '✓ Live'}
+                                            {stages.production === 'failed' && '✗ Failed'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Environments */}
+                                <div className="environments-container">
+                                    <div className="env-card">
+                                        <div className="env-header">
+                                            <span className="env-name">
+                                                <span>💻</span> Development
+                                            </span>
+                                            <span className="env-badge dev">DEV</span>
+                                        </div>
+                                        <div className="env-version">{environments.dev.version}</div>
+                                        <div className="env-status">
+                                            <span className={`status-dot ${environments.dev.status}`}></span>
+                                            <span>{environments.dev.status}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="env-card">
+                                        <div className="env-header">
+                                            <span className="env-name">
+                                                <span>🔬</span> Staging
+                                            </span>
+                                            <span className="env-badge staging">STG</span>
+                                        </div>
+                                        <div className="env-version">{environments.staging.version}</div>
+                                        <div className="env-status">
+                                            <span className={`status-dot ${environments.staging.status}`}></span>
+                                            <span>{environments.staging.status}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="env-card">
+                                        <div className="env-header">
+                                            <span className="env-name">
+                                                <span>🌐</span> Production
+                                            </span>
+                                            <span className="env-badge prod">PROD</span>
+                                        </div>
+                                        <div className="env-version">{environments.prod.version}</div>
+                                        <div className="env-status">
+                                            <span className={`status-dot ${environments.prod.status}`}></span>
+                                            <span>{environments.prod.status}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Console Log */}
+                                <div className="log-output">
+                                    {consoleLogs.map((log, i) => (
+                                        <div key={i} className="log-line">
+                                            <span className="timestamp">[{log.timestamp}]</span>
+                                            <span className={`level ${log.level}`}>{log.level.toUpperCase()}</span>
+                                            <span className="message">{log.message}</span>
+                                        </div>
+                                    ))}
+                                    {consoleLogs.length === 0 && (
+                                        <div className="log-line">
+                                            <span className="timestamp">[--:--:--]</span>
+                                            <span className="level info">INFO</span>
+                                            <span className="message">Pipeline ready. Click "Trigger Pipeline" to start.</span>
+                                        </div>
+                                    )}
+                                    <div ref={logEndRef} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="actions-panel">
+                            <div className="actions-grid">
+                                <button 
+                                    className={`action-btn ${!pipelineRunning && !completedSteps.includes('trigger_pipeline') ? 'primary' : ''}`}
+                                    onClick={triggerPipeline}
+                                    disabled={pipelineRunning || completedSteps.includes('trigger_pipeline')}
+                                >
+                                    <span className="icon">🚀</span>
+                                    <span>Trigger Pipeline</span>
+                                    <span className="auto-badge">Auto on merge</span>
+                                </button>
+                                
+                                <button 
+                                    className={`action-btn ${stages.build === 'running' ? 'warning' : ''}`}
+                                    onClick={runBuildStage}
+                                    disabled={!pipelineRunning || stages.build === 'success' || stages.build === 'running'}
+                                >
+                                    <span className="icon">🔨</span>
+                                    <span>Run Build</span>
+                                    <span className="auto-badge">Auto in pipeline</span>
+                                </button>
+                                
+                                <button 
+                                    className={`action-btn ${stages.test === 'running' ? 'warning' : ''}`}
+                                    onClick={runTestStage}
+                                    disabled={stages.build !== 'success' || stages.test === 'success' || stages.test === 'running'}
+                                >
+                                    <span className="icon">🧪</span>
+                                    <span>Run Tests</span>
+                                    <span className="auto-badge">Auto in pipeline</span>
+                                </button>
+                                
+                                <button 
+                                    className={`action-btn ${stages.test === 'success' && stages.staging === 'pending' ? 'success' : ''}`}
+                                    onClick={deployToStaging}
+                                    disabled={stages.test !== 'success' || stages.staging === 'success' || stages.staging === 'running'}
+                                >
+                                    <span className="icon">📦</span>
+                                    <span>Deploy Staging</span>
+                                    <span className="auto-badge">Auto after tests</span>
+                                </button>
+                                
+                                <button 
+                                    className={`action-btn ${awaitingApproval ? 'warning' : stages.staging === 'success' && stages.approval === 'pending' ? 'success' : ''}`}
+                                    onClick={requestApproval}
+                                    disabled={stages.staging !== 'success' || !completedSteps.includes('staging_tests') || stages.approval === 'success' || awaitingApproval}
+                                >
+                                    <span className="icon">{awaitingApproval ? '⏳' : '✅'}</span>
+                                    <span>{awaitingApproval ? `Awaiting (${approvalCountdown}s)` : 'Request Approval'}</span>
+                                    <span className="manual-badge">Manual gate</span>
+                                </button>
+                                
+                                <button 
+                                    className={`action-btn ${stages.approval === 'success' && stages.production === 'pending' ? 'primary' : ''}`}
+                                    onClick={deployToProduction}
+                                    disabled={stages.approval !== 'success' || stages.production === 'success' || stages.production === 'running'}
+                                >
+                                    <span className="icon">🌐</span>
+                                    <span>Deploy Production</span>
+                                    <span className="auto-badge">Auto after approval</span>
+                                </button>
+                                
+                                <button 
+                                    className={`action-btn ${healthCheckFailed ? 'danger' : ''}`}
+                                    onClick={rollback}
+                                    disabled={!canRollback || !healthCheckFailed}
+                                >
+                                    <span className="icon">⏪</span>
+                                    <span>Rollback</span>
+                                    <span className="manual-badge">Manual decision</span>
+                                </button>
+                                
+                                <button 
+                                    className="action-btn"
+                                    onClick={resetSimulation}
+                                >
+                                    <span className="icon">🔄</span>
+                                    <span>Reset</span>
+                                </button>
+                            </div>
+                        </div>
+                    </main>
+
+                    {/* Right Sidebar */}
+                    <aside className="sidebar-right">
+                        <div className="sidebar-section">
+                            <h3>Deployment Metrics</h3>
+                            <div className="metrics-grid">
+                                <div className="metric-item">
+                                    <div className="metric-value">99.9%</div>
+                                    <div className="metric-label">Uptime</div>
+                                </div>
+                                <div className="metric-item">
+                                    <div className="metric-value">45ms</div>
+                                    <div className="metric-label">Avg Response</div>
+                                </div>
+                                <div className="metric-item">
+                                    <div className="metric-value">0.02%</div>
+                                    <div className="metric-label">Error Rate</div>
+                                </div>
+                                <div className="metric-item">
+                                    <div className="metric-value">3</div>
+                                    <div className="metric-label">Deployments/Day</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Activity Log */}
+                        <div className="log-container">
+                            <h3>Activity Log</h3>
+                            <div className="log-list">
+                                {logs.map(log => (
+                                    <div 
+                                        key={log.id} 
+                                        className={`log-item ${
+                                            log.message.includes('Awaiting') ? 'approval-needed' :
+                                            log.message.includes('Health check failing') ? 'alert' :
+                                            log.message.includes('started') || log.message.includes('Running') ? 'processing' : ''
+                                        }`}
+                                        onClick={() => toggleLogDescription(log.id)}
+                                    >
+                                        <span className="log-icon">{log.icon}</span>
+                                        <div className="log-content">
+                                            <span className="log-message">{log.message}</span>
+                                            <span className="log-detail">{log.detail}</span>
+                                            <div className={`log-location ${log.location}`}>
+                                                <span className="location-icon">
+                                                    {log.location === 'pipeline' ? '⚡' : 
+                                                     log.location === 'staging' ? '🔬' : 
+                                                     log.location === 'production' ? '🌐' : '🐙'}
+                                                </span>
+                                                <span>
+                                                    {log.location === 'pipeline' ? 'CI/CD Pipeline' : 
+                                                     log.location === 'staging' ? 'Staging Environment' : 
+                                                     log.location === 'production' ? 'Production Environment' : 'GitHub Actions'}
+                                                </span>
+                                            </div>
+                                            {!log.showDescription && log.description && (
+                                                <div className="click-hint">Click for details</div>
+                                            )}
+                                            {log.showDescription && log.description && (
+                                                <div className="log-description">{log.description}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                                {logs.length === 0 && (
+                                    <div className="log-item" style={{cursor: 'default'}}>
+                                        <span className="log-icon">💡</span>
+                                        <div className="log-content">
+                                            <span className="log-message">Ready to deploy</span>
+                                            <span className="log-detail">Click "Trigger Pipeline" to begin</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* Status Bar */}
+                    <footer className="status-bar">
+                        <div className="status-left">
+                            <div className="status-item">
+                                <span className={`status-dot ${
+                                    healthCheckFailed ? 'red' :
+                                    pipelineRunning ? 'blue' :
+                                    pipelineStatus === 'success' ? 'green' : 'orange'
+                                }`}></span>
+                                <span>
+                                    {healthCheckFailed ? '⚠️ HEALTH CHECK FAILING - Consider rollback' :
+                                     pipelineRunning ? 'Pipeline running...' :
+                                     pipelineStatus === 'success' ? 'Deployment complete' : 'Ready to deploy'}
+                                </span>
+                            </div>
+                            <div className="status-item">
+                                <span>📦 {buildVersion}</span>
+                            </div>
+                        </div>
+                        <div className="status-right">
+                            <div className="status-item">
+                                <span>🌐 {environments.prod.version} live</span>
+                            </div>
+                        </div>
+                    </footer>
+
+                    {/* Modal */}
+                    {modal && (
+                        <div className="modal-overlay" onClick={() => {
+                            if (modal.onCancel) {
+                                modal.onCancel();
+                            } else {
+                                setModal(null);
+                            }
+                        }}>
+                            <div className="modal" onClick={e => e.stopPropagation()}>
+                                <h2>{modal.title}</h2>
+                                <p>{modal.message}</p>
+                                {modal.input && (
+                                    <input
+                                        type="text"
+                                        className="modal-input"
+                                        placeholder={modal.placeholder}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                modal.onConfirm(e.target.value);
+                                            }
+                                        }}
+                                    />
+                                )}
+                                <div className="modal-buttons">
+                                    {!modal.hideCancel && (
+                                        <button className="modal-btn cancel" onClick={() => {
+                                            if (modal.onCancel) {
+                                                modal.onCancel();
+                                            } else {
+                                                setModal(null);
+                                            }
+                                        }}>
+                                            {modal.cancelText || 'Cancel'}
+                                        </button>
+                                    )}
+                                    <button 
+                                        className="modal-btn confirm"
+                                        onClick={() => {
+                                            const input = document.querySelector('.modal-input');
+                                            modal.onConfirm(input ? input.value : null);
+                                        }}
+                                    >
+                                        {modal.confirmText || 'Confirm'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Toast */}
+                    {toast && (
+                        <div className={`toast ${toast.type}`}>
+                            <span>
+                                {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✗' : 'ℹ'}
+                            </span>
+                            <span>{toast.message}</span>
+                        </div>
+                    )}
+
+                    {/* Celebration */}
+                    {showCelebration && (
+                        <div className="celebration">
+                            {Array.from({ length: 50 }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="confetti"
+                                    style={{
+                                        left: `${Math.random() * 100}%`,
+                                        backgroundColor: ['#58a6ff', '#3fb950', '#a371f7', '#d29922', '#39d4d4', '#db61a2'][Math.floor(Math.random() * 6)],
+                                        animationDelay: `${Math.random() * 0.5}s`,
+                                        borderRadius: Math.random() > 0.5 ? '50%' : '0'
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+    </script>
+</body>
+</html>
