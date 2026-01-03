@@ -7,5 +7,3 @@ This is a repo of different single web page visualizations of topics that I cove
 - [https://markm208.github.io/vibeCodingInClassTools/kmeansclustering.html](kmeansclustering.html)
 - [https://markm208.github.io/vibeCodingInClassTools/temperature-chart.html](temperature-chart.html)
 - [https://markm208.github.io/vibeCodingInClassTools/student-group-maker.html](student-group-maker.html)
-- [https://markm208.github.io/vibeCodingInClassTools/git-workflow-simulator.html](https://markm208.github.io/vibeCodingInClassTools/git-workflow-simulator.html)
-
