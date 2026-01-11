@@ -988,6 +988,7 @@ int main() {
             const [hasConflict, setHasConflict] = useState(false);
             const [teammateChangeUsed, setTeammateChangeUsed] = useState(false);
             const [changesRequested, setChangesRequested] = useState(false);
+            const [pulledBeforePR, setPulledBeforePR] = useState(false);
             const [rightSidebarWidth, setRightSidebarWidth] = useState(280);
             const [isResizing, setIsResizing] = useState(false);
             const textareaRef = useRef(null);
@@ -1333,21 +1334,56 @@ int main() {
                     showToast('Pull latest changes first! Your teammate pushed to main.', 'error');
                     return;
                 }
-                setModal({
-                    title: '📋 Create Pull Request',
-                    message: 'WHY: A Pull Request (PR) is a formal request to merge your branch into main. It is the centerpiece of team collaboration. PRs let teammates see your changes, discuss them, suggest improvements, and catch bugs before they reach production. No code should reach main without a PR.\n\nHOW: Describe what your code does and why. Link to any related issues. Reviewers will read this to understand your changes.',
-                    input: true,
-                    placeholder: 'Add greeting feature that displays a welcome message',
-                    onConfirm: (value) => {
-                        if (value && value.trim()) {
-                            setPrCreated(true);
-                            addLog('📋', 'Pull request created', `PR: ${currentBranch} → main`, 'github');
-                            completeStep('create_pr');
-                            showToast('Pull request created!', 'success');
+                
+                // Helper function to show the actual PR creation modal
+                const showPRModal = () => {
+                    setModal({
+                        title: '📋 Create Pull Request',
+                        message: 'WHY: A Pull Request (PR) is a formal request to merge your branch into main. It is the centerpiece of team collaboration. PRs let teammates see your changes, discuss them, suggest improvements, and catch bugs before they reach production. No code should reach main without a PR.\n\nHOW: Describe what your code does and why. Link to any related issues. Reviewers will read this to understand your changes.',
+                        input: true,
+                        placeholder: 'Add greeting feature that displays a welcome message',
+                        onConfirm: (value) => {
+                            if (value && value.trim()) {
+                                setPrCreated(true);
+                                addLog('📋', 'Pull request created', `PR: ${currentBranch} → main`, 'github');
+                                completeStep('create_pr');
+                                showToast('Pull request created!', 'success');
+                            }
+                            setModal(null);
                         }
-                        setModal(null);
-                    }
-                });
+                    });
+                };
+                
+                // If user hasn't pulled before creating PR, suggest they do so
+                if (!pulledBeforePR) {
+                    setModal({
+                        title: '⬇️ Pull Before Creating PR?',
+                        message: 'BEST PRACTICE: Before creating a PR, it is a good idea to pull the latest main into your branch. This catches conflicts early and ensures your PR can merge cleanly.\n\nIf there are conflicts, you can resolve them now rather than surprising your reviewer later.',
+                        input: false,
+                        cancelText: 'Skip, Create PR',
+                        confirmText: 'Pull First',
+                        onConfirm: () => {
+                            setPulledBeforePR(true);
+                            addLog('⬇️', 'Pulled latest from main', 'git pull origin main', 'sending');
+                            showToast('Up to date with main', 'success');
+                            setModal(null);
+                            // Show PR modal after a brief delay
+                            setTimeout(() => {
+                                showPRModal();
+                            }, 100);
+                        },
+                        onCancel: () => {
+                            setPulledBeforePR(true); // Don't ask again
+                            setModal(null);
+                            // Show PR modal after a brief delay
+                            setTimeout(() => {
+                                showPRModal();
+                            }, 100);
+                        }
+                    });
+                } else {
+                    showPRModal();
+                }
             };
 
             const requestReview = () => {
@@ -1448,6 +1484,7 @@ int main() {
                                             setHasConflict(false);
                                             setTeammateChangeUsed(false);
                                             setChangesRequested(false);
+                                            setPulledBeforePR(false);
                                             addLog('⬇️', 'Pulled latest from main', 'Fast-forward merge successful', 'sending');
                                             showToast('Pulled Sarah\'s changes! Create a new branch to continue.', 'success');
                                             setModal(null);
@@ -1566,6 +1603,7 @@ ${mainCode.split('int main() {')[1].split('return 0;')[0].trim()}
                 setHasConflict(false);
                 setTeammateChangeUsed(false);
                 setChangesRequested(false);
+                setPulledBeforePR(false);
                 showToast('Workflow reset!', 'info');
             };
 
@@ -1854,7 +1892,7 @@ ${mainCode.split('int main() {')[1].split('return 0;')[0].trim()}
                                         <span className="log-icon">💡</span>
                                         <div className="log-content">
                                             <span className="log-message">Start by creating a branch</span>
-                                            <span className="log-detail">Never code directly on the main branch!.</span>
+                                            <span className="log-detail">Never code directly on the main branch!</span>
                                         </div>
                                     </div>
                                 )}
