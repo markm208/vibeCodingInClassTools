@@ -220,7 +220,8 @@
             flex: 1;
         }
 
-        .group-name-input {
+        .group-name-editable {
+            display: block;
             border: 1px solid transparent;
             background: transparent;
             font-size: 1rem;
@@ -228,32 +229,45 @@
             color: #0369a1;
             padding: 2px 6px;
             border-radius: 4px;
-            width: 100%;
-            max-width: 180px;
+            cursor: text;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
-        .group-name-input:hover {
+        .group-name-editable:hover {
             border-color: #bae6fd;
             background: #f0f9ff;
         }
 
-        .group-name-input:focus {
+        .group-name-editable:focus {
             outline: none;
             border-color: #0369a1;
             background: white;
         }
 
         .group-header {
-            display: flex;
-            align-items: center;
-            gap: 4px;
             margin: 0 0 10px 0;
             font-size: 1rem;
             color: #0369a1;
         }
 
-        .group-header span {
-            white-space: nowrap;
+        .group-header .group-label {
+            font-weight: normal;
+        }
+
+        .group-header .group-count {
+            font-weight: normal;
+        }
+
+        .group-name-editable {
+            display: inline;
+            border: 1px solid transparent;
+            background: transparent;
+            font-weight: bold;
+            color: #0369a1;
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: text;
         }
     </style>
 </head>
@@ -534,11 +548,11 @@
                 card.dataset.groupIndex = index;
                 card.innerHTML = `
                     <div class="group-header">
-                        <span>Group ${index + 1} -</span>
-                        <input type="text" class="group-name-input" value="${groupNames[index]}" 
-                               data-group-index="${index}" onchange="updateGroupName(this)" 
-                               title="Click to edit group name">
-                        <span>(${group.length})</span>
+                        <span class="group-label">Group ${index + 1} -</span>
+                        <span class="group-name-editable" contenteditable="true"
+                              data-group-index="${index}" 
+                              title="Click to edit group name">${groupNames[index]}</span>
+                        <span class="group-count">(${group.length})</span>
                     </div>
                     <ul>
                         ${group.map(student => formatStudentHTML(student, index)).join('')}
@@ -546,6 +560,8 @@
                 `;
                 outputEl.appendChild(card);
             });
+
+            setupGroupNameEditing();
 
             setupDragAndDrop();
         }
@@ -629,11 +645,11 @@
                 card.dataset.groupIndex = index;
                 card.innerHTML = `
                     <div class="group-header">
-                        <span>Group ${index + 1} -</span>
-                        <input type="text" class="group-name-input" value="${currentGroupNames[index]}" 
-                               data-group-index="${index}" onchange="updateGroupName(this)" 
-                               title="Click to edit group name">
-                        <span>(${group.length})</span>
+                        <span class="group-label">Group ${index + 1} -</span>
+                        <span class="group-name-editable" contenteditable="true"
+                              data-group-index="${index}" 
+                              title="Click to edit group name">${currentGroupNames[index]}</span>
+                        <span class="group-count">(${group.length})</span>
                     </div>
                     <ul>
                         ${group.map(student => formatStudentHTML(student, index)).join('')}
@@ -642,12 +658,24 @@
                 outputEl.appendChild(card);
             });
 
+            setupGroupNameEditing();
+
             setupDragAndDrop();
         }
 
-        function updateGroupName(input) {
-            const groupIndex = parseInt(input.dataset.groupIndex);
-            currentGroupNames[groupIndex] = input.value;
+        function setupGroupNameEditing() {
+            document.querySelectorAll('.group-name-editable').forEach(el => {
+                el.addEventListener('blur', function() {
+                    const groupIndex = parseInt(this.dataset.groupIndex);
+                    currentGroupNames[groupIndex] = this.textContent.trim();
+                });
+                el.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.blur();
+                    }
+                });
+            });
         }
 
         function copyGroupsToClipboard() {
