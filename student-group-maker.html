@@ -219,6 +219,42 @@
         .student-name {
             flex: 1;
         }
+
+        .group-name-input {
+            border: 1px solid transparent;
+            background: transparent;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #0369a1;
+            padding: 2px 6px;
+            border-radius: 4px;
+            width: 100%;
+            max-width: 180px;
+        }
+
+        .group-name-input:hover {
+            border-color: #bae6fd;
+            background: #f0f9ff;
+        }
+
+        .group-name-input:focus {
+            outline: none;
+            border-color: #0369a1;
+            background: white;
+        }
+
+        .group-header {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: #0369a1;
+        }
+
+        .group-header span {
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -497,7 +533,13 @@
                 card.className = 'group-card';
                 card.dataset.groupIndex = index;
                 card.innerHTML = `
-                    <h3>Group ${index + 1} - ${groupNames[index]} (${group.length})</h3>
+                    <div class="group-header">
+                        <span>Group ${index + 1} -</span>
+                        <input type="text" class="group-name-input" value="${groupNames[index]}" 
+                               data-group-index="${index}" onchange="updateGroupName(this)" 
+                               title="Click to edit group name">
+                        <span>(${group.length})</span>
+                    </div>
                     <ul>
                         ${group.map(student => formatStudentHTML(student, index)).join('')}
                     </ul>
@@ -586,7 +628,13 @@
                 card.className = 'group-card';
                 card.dataset.groupIndex = index;
                 card.innerHTML = `
-                    <h3>Group ${index + 1} - ${currentGroupNames[index]} (${group.length})</h3>
+                    <div class="group-header">
+                        <span>Group ${index + 1} -</span>
+                        <input type="text" class="group-name-input" value="${currentGroupNames[index]}" 
+                               data-group-index="${index}" onchange="updateGroupName(this)" 
+                               title="Click to edit group name">
+                        <span>(${group.length})</span>
+                    </div>
                     <ul>
                         ${group.map(student => formatStudentHTML(student, index)).join('')}
                     </ul>
@@ -595,6 +643,11 @@
             });
 
             setupDragAndDrop();
+        }
+
+        function updateGroupName(input) {
+            const groupIndex = parseInt(input.dataset.groupIndex);
+            currentGroupNames[groupIndex] = input.value;
         }
 
         function copyGroupsToClipboard() {
