@@ -269,6 +269,114 @@
             border-radius: 4px;
             cursor: text;
         }
+
+        .btn-group {
+            position: relative;
+            display: inline-flex;
+        }
+
+        .btn-group .btn {
+            padding: 10px 20px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .btn-group .btn:hover {
+            background: #1d4ed8;
+        }
+
+        .btn-group .btn:first-child {
+            border-radius: 4px 0 0 4px;
+        }
+
+        .btn-group .btn-toggle {
+            padding: 10px 12px;
+            border-left: 1px solid rgba(255,255,255,0.3);
+            border-radius: 0 4px 4px 0;
+        }
+
+        .btn-group .btn-toggle::after {
+            content: '';
+            display: inline-block;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid white;
+            vertical-align: middle;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid rgba(0,0,0,0.15);
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            margin-bottom: 4px;
+            min-width: 180px;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            background: white;
+            color: #333;
+            border: none;
+            text-align: left;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+
+        .dropdown-item:hover {
+            background: #f0f9ff;
+        }
+
+        .dropdown-item.active {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .dropdown-item .checkmark {
+            margin-right: 8px;
+            visibility: hidden;
+        }
+
+        .dropdown-item.active .checkmark {
+            visibility: visible;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -312,9 +420,22 @@
         </div>
         <div class="groups-output" id="groupsOutput"></div>
         <div class="groups-footer">
-            <button id="copyBtn" onclick="copyGroupsToClipboard()">Copy to Clipboard</button>
+            <div class="btn-group" id="copyBtnGroup">
+                <button class="btn" id="copyBtn" onclick="copyGroupsToClipboard()">Copy as HTML</button>
+                <button class="btn btn-toggle" onclick="toggleDropdown(event)"></button>
+                <div class="dropdown-menu" id="copyDropdown">
+                    <button class="dropdown-item active" onclick="selectCopyFormat('html')">
+                        <span class="checkmark">✓</span>Copy as HTML
+                    </button>
+                    <button class="dropdown-item" onclick="selectCopyFormat('text')">
+                        <span class="checkmark">✓</span>Copy as Plain Text
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
+
+    <div class="toast" id="toast">Copied to clipboard!</div>
 
     <script>
         // ========================================
@@ -678,42 +799,115 @@
             });
         }
 
+        function toggleCopyDropdown() {
+            document.getElementById('copyDropdown').classList.toggle('show');
+        }
+
+        function toggleDropdown(event) {
+            event.stopPropagation();
+            document.getElementById('copyDropdown').classList.toggle('show');
+        }
+
+        let selectedCopyFormat = 'html';
+
+        function selectCopyFormat(format) {
+            selectedCopyFormat = format;
+            const btn = document.getElementById('copyBtn');
+            btn.textContent = format === 'html' ? 'Copy as HTML' : 'Copy as Plain Text';
+            
+            // Update active state
+            document.querySelectorAll('.dropdown-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.closest('.dropdown-item').classList.add('active');
+            
+            document.getElementById('copyDropdown').classList.remove('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const btnGroup = document.getElementById('copyBtnGroup');
+            if (btnGroup && !btnGroup.contains(e.target)) {
+                document.getElementById('copyDropdown').classList.remove('show');
+            }
+        });
+
         function copyGroupsToClipboard() {
+            const format = selectedCopyFormat;
             if (currentGroups.length === 0) {
                 alert('No groups to copy. Generate groups first.');
                 return;
             }
 
-            let text = '';
-            currentGroups.forEach((group, index) => {
-                text += `**Group ${index + 1} - ${currentGroupNames[index]}**\n`;
-                group.forEach(student => {
-                    let line = `- ${student.name}`;
-                    let links = [];
-                    if (student.email) {
-                        links.push(`Email: ${student.email}`);
-                    }
-                    if (student.github) {
-                        links.push(`GitHub: https://github.com/${student.github}`);
-                    }
-                    if (links.length > 0) {
-                        line += ` (${links.join(', ')})`;
-                    }
-                    text += line + '\n';
+            if (format === 'html') {
+                let html = '';
+                currentGroups.forEach((group, index) => {
+                    html += `<h3>Group ${index + 1} - ${currentGroupNames[index]} (${group.length})</h3>\n<ul>\n`;
+                    group.forEach(student => {
+                        let line = `  <li>${student.name}`;
+                        if (student.email) {
+                            line += ` <a href="mailto:${student.email}">${student.email}</a>`;
+                        }
+                        if (student.github) {
+                            line += ` <a href="https://github.com/${student.github}">GitHub</a>`;
+                        }
+                        line += `</li>`;
+                        html += line + '\n';
+                    });
+                    html += `</ul>\n\n`;
                 });
-                text += '\n';
-            });
 
-            navigator.clipboard.writeText(text.trim()).then(() => {
-                const btn = document.getElementById('copyBtn');
-                const originalText = btn.textContent;
-                btn.textContent = 'Copied!';
-                setTimeout(() => {
-                    btn.textContent = originalText;
-                }, 2000);
-            }).catch(err => {
-                alert('Failed to copy to clipboard.');
-            });
+                // Copy as rich HTML so it pastes as formatted content
+                const blob = new Blob([html.trim()], { type: 'text/html' });
+                const clipboardItem = new ClipboardItem({
+                    'text/html': blob,
+                    'text/plain': new Blob([html.trim()], { type: 'text/plain' })
+                });
+                navigator.clipboard.write([clipboardItem]).then(() => {
+                    showCopyConfirmation();
+                }).catch(err => {
+                    // Fallback to plain text if HTML clipboard fails
+                    navigator.clipboard.writeText(html.trim()).then(() => {
+                        showCopyConfirmation();
+                    }).catch(err => {
+                        alert('Failed to copy to clipboard.');
+                    });
+                });
+            } else {
+                let text = '';
+                currentGroups.forEach((group, index) => {
+                    text += `**Group ${index + 1} - ${currentGroupNames[index]}**\n`;
+                    group.forEach(student => {
+                        let line = `- ${student.name}`;
+                        let links = [];
+                        if (student.email) {
+                            links.push(`Email: ${student.email}`);
+                        }
+                        if (student.github) {
+                            links.push(`GitHub: https://github.com/${student.github}`);
+                        }
+                        if (links.length > 0) {
+                            line += ` (${links.join(', ')})`;
+                        }
+                        text += line + '\n';
+                    });
+                    text += '\n';
+                });
+
+                navigator.clipboard.writeText(text.trim()).then(() => {
+                    showCopyConfirmation();
+                }).catch(err => {
+                    alert('Failed to copy to clipboard.');
+                });
+            }
+        }
+
+        function showCopyConfirmation() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
         }
 
         // Initialize on load
