@@ -1,0 +1,2338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLI Mountain Explorer</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-panel: #161b22;
+            --bg-input: #0d1117;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-purple: #a371f7;
+            --accent-orange: #d29922;
+            --accent-red: #f85149;
+            --accent-pink: #db61a2;
+            --accent-cyan: #39c5cf;
+            --success-bg: rgba(63, 185, 80, 0.15);
+            --warning-bg: rgba(210, 153, 34, 0.15);
+            --error-bg: rgba(248, 81, 73, 0.15);
+            --mountain-snow: #e8eaed;
+            --mountain-peak: #6b7280;
+            --mountain-mid: #4a5568;
+            --mountain-base: #2d3748;
+            --trail-color: #d97706;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 260px 1fr 280px;
+            grid-template-rows: auto 1fr;
+            height: 100vh;
+            gap: 1px;
+            background: var(--border);
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            background: var(--bg-panel);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header h1::before {
+            content: '';
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+            border-radius: 6px;
+        }
+
+        .current-location {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-input);
+            border: 1px solid var(--accent-purple);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            word-break: break-all;
+            white-space: pre-line;
+        }
+
+        .location-icon {
+            color: var(--accent-orange);
+            flex-shrink: 0;
+        }
+
+        /* Sidebars */
+        .sidebar-left,
+        .sidebar-right {
+            background: var(--bg-panel);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .sidebar-section {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .sidebar-section h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        /* Progress */
+        .progress-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .progress-bar-wrapper {
+            background: var(--bg-input);
+            border-radius: 999px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
+            border-radius: 999px;
+            transition: width 0.5s ease;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Lessons Checklist */
+        .lessons-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            min-height: 0;
+        }
+
+        .lessons-container h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            position: sticky;
+            top: 0;
+            background: var(--bg-panel);
+            padding: 0.25rem 0;
+        }
+
+        .lesson-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .lesson-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .lesson-item:hover {
+            background: rgba(88, 166, 255, 0.05);
+        }
+
+        .lesson-item.completed {
+            color: var(--accent-green);
+            background: var(--success-bg);
+        }
+
+        .lesson-item.current {
+            color: var(--accent-blue);
+            background: rgba(88, 166, 255, 0.1);
+            border-color: var(--accent-blue);
+        }
+
+        .lesson-item.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .check-icon {
+            width: 18px;
+            height: 18px;
+            border: 2px solid currentColor;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+
+        .lesson-item.completed .check-icon {
+            background: var(--accent-green);
+            border-color: var(--accent-green);
+            color: var(--bg-dark);
+        }
+
+        /* Main Content */
+        .main-content {
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        /* Mountain Visualization */
+        .mountain-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 400px;
+        }
+
+        .mountain-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* New directory marker animation */
+        .dir-marker.new {
+            animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Hiker */
+        .hiker {
+            transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .hiker-body {
+            fill: var(--accent-orange);
+        }
+
+        .hiker-pack {
+            fill: var(--accent-purple);
+        }
+
+        /* Directory markers */
+        .dir-marker {
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .dir-marker:hover {
+            cursor: pointer;
+        }
+
+        .dir-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            fill: var(--text-primary);
+        }
+
+        /* Terminal */
+        .terminal-container {
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            height: 200px;
+            flex-shrink: 0;
+        }
+
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            background: var(--bg-input);
+            border-bottom: 1px solid var(--border);
+            gap: 0.5rem;
+        }
+
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .terminal-dot.red { background: #ff5f56; }
+        .terminal-dot.yellow { background: #ffbd2e; }
+        .terminal-dot.green { background: #27ca40; }
+
+        .terminal-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-left: 0.5rem;
+        }
+
+        .terminal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.75rem 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        .terminal-output {
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            margin-bottom: 0.5rem;
+        }
+
+        .terminal-output.error {
+            color: var(--accent-red);
+        }
+
+        .terminal-output.success {
+            color: var(--accent-green);
+        }
+
+        .terminal-output.info {
+            color: var(--accent-cyan);
+        }
+
+        .terminal-input-line {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .terminal-prompt {
+            color: var(--accent-green);
+            white-space: nowrap;
+        }
+
+        .terminal-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            outline: none;
+        }
+
+        /* File Tree */
+        .file-tree-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            min-height: 0;
+        }
+
+        .file-tree-container h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            position: sticky;
+            top: 0;
+            background: var(--bg-panel);
+            padding: 0.25rem 0;
+        }
+
+        .file-tree {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+        }
+
+        .tree-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .tree-item:hover {
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .tree-item.current {
+            background: rgba(163, 113, 247, 0.2);
+            border-left: 2px solid var(--accent-purple);
+        }
+
+        .tree-item.dir .tree-icon {
+            color: var(--accent-orange);
+        }
+
+        .tree-item.file .tree-icon {
+            color: var(--accent-blue);
+        }
+
+        .tree-children {
+            margin-left: 1rem;
+            border-left: 1px solid var(--border);
+            padding-left: 0.5rem;
+            overflow: hidden;
+            transition: max-height 0.2s ease-out;
+        }
+
+        .tree-children.collapsed {
+            max-height: 0 !important;
+        }
+
+        .tree-item.dir .tree-toggle {
+            display: inline-block;
+            width: 12px;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            transition: transform 0.2s ease;
+        }
+
+        .tree-item.dir.collapsed .tree-toggle {
+            transform: rotate(-90deg);
+        }
+
+        .tree-item.dir:hover .tree-toggle {
+            color: var(--text-primary);
+        }
+
+        /* File Preview Tooltip */
+        .file-preview-tooltip {
+            position: fixed;
+            background: var(--bg-panel);
+            border: 1px solid var(--accent-blue);
+            border-radius: 8px;
+            padding: 0.75rem;
+            max-width: 280px;
+            max-height: 200px;
+            overflow: hidden;
+            z-index: 1000;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .file-preview-tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .file-preview-tooltip .preview-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--accent-blue);
+        }
+
+        .file-preview-tooltip .preview-content {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.4;
+            max-height: 140px;
+            overflow: hidden;
+        }
+
+        .file-preview-tooltip .preview-content.empty {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* Tutorial Panel */
+        .tutorial-panel {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin: 1rem;
+            padding: 1rem;
+        }
+
+        .tutorial-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tutorial-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 0.75rem;
+        }
+
+        .tutorial-task {
+            background: var(--bg-panel);
+            border: 1px solid var(--accent-purple);
+            border-radius: 6px;
+            padding: 0.75rem;
+            font-size: 0.8rem;
+        }
+
+        .tutorial-task-label {
+            color: var(--accent-purple);
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .tutorial-task-command {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-primary);
+        }
+
+        /* Inline command styling - looks like terminal input */
+        .cmd {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-input);
+            color: var(--accent-green);
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            font-size: 0.9em;
+        }
+
+        /* Backpack (PATH visualization) */
+        .backpack-section {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .backpack-section h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+        }
+
+        .backpack-tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tool-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tool-item:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(57, 197, 207, 0.1);
+            color: var(--text-primary);
+        }
+
+        .tool-item .tool-icon {
+            font-size: 0.8rem;
+        }
+
+        /* Tool Tooltip */
+        .tool-tooltip {
+            position: fixed;
+            background: var(--bg-panel);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 8px;
+            padding: 0.75rem;
+            min-width: 200px;
+            max-width: 280px;
+            z-index: 1000;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .tool-tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .tool-tooltip .tooltip-cmd {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            margin-bottom: 0.5rem;
+        }
+
+        .tool-tooltip .tooltip-loc {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--accent-orange);
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background: rgba(217, 119, 6, 0.1);
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .tool-tooltip .tooltip-desc {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        /* Animations */
+        @keyframes hikerBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .hiker.walking {
+            animation: hikerBounce 0.3s ease-in-out infinite;
+        }
+
+        @keyframes flagWave {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+        }
+
+        .flag {
+            transform-origin: bottom center;
+            animation: flagWave 2s ease-in-out infinite;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Success celebration */
+        @keyframes celebrate {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .celebrate {
+            animation: celebrate 0.5s ease-out;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: absolute;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 200px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .app-container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar-left, .sidebar-right {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1>CLI Mountain Explorer</h1>
+        </header>
+
+        <!-- Left Sidebar - Lessons -->
+        <aside class="sidebar-left">
+            <div class="sidebar-section">
+                <h3>Trail Progress</h3>
+                <div class="progress-container">
+                    <div class="progress-bar-wrapper">
+                        <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-label">
+                        <span id="progress-text">0 of 8 trails completed</span>
+                        <span id="progress-percent">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lessons-container">
+                <h3>Trail Guide</h3>
+                <div class="lesson-list" id="lesson-list">
+                    <!-- Lessons populated by JS -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Tutorial Panel -->
+            <div class="tutorial-panel" id="tutorial-panel">
+                <div class="tutorial-title">
+                    <span>🏔️</span>
+                    <span id="tutorial-title">Welcome, Hiker!</span>
+                </div>
+                <div class="tutorial-text" id="tutorial-text">
+                    You're about to explore the file system mountain. Your current location is your home base camp (~).
+                    Use CLI commands to navigate the trails and discover new locations.
+                </div>
+                <div class="tutorial-task" id="tutorial-task">
+                    <div class="tutorial-task-label">Your Task:</div>
+                    <div class="tutorial-task-command" id="task-command">Type <code>pwd</code> to see where you are</div>
+                </div>
+            </div>
+
+            <!-- Mountain Visualization -->
+            <div class="mountain-container">
+                <svg class="mountain-svg" id="mountain-svg" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet">
+                    <!-- Sky gradient -->
+                    <defs>
+                        <linearGradient id="skyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#1a1a2e"/>
+                            <stop offset="100%" style="stop-color:#16213e"/>
+                        </linearGradient>
+                        <linearGradient id="mountainGradient1" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#e8eaed"/>
+                            <stop offset="30%" style="stop-color:#6b7280"/>
+                            <stop offset="100%" style="stop-color:#374151"/>
+                        </linearGradient>
+                        <linearGradient id="mountainGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:#9ca3af"/>
+                            <stop offset="100%" style="stop-color:#1f2937"/>
+                        </linearGradient>
+                        <filter id="glow">
+                            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    </defs>
+
+                    <!-- Background -->
+                    <rect width="1000" height="500" fill="url(#skyGradient)"/>
+
+                    <!-- Stars -->
+                    <g class="stars">
+                        <circle cx="50" cy="30" r="1" fill="#fff" opacity="0.6"/>
+                        <circle cx="150" cy="50" r="1.5" fill="#fff" opacity="0.8"/>
+                        <circle cx="300" cy="25" r="1" fill="#fff" opacity="0.5"/>
+                        <circle cx="500" cy="40" r="1" fill="#fff" opacity="0.7"/>
+                        <circle cx="700" cy="20" r="1.5" fill="#fff" opacity="0.6"/>
+                        <circle cx="850" cy="55" r="1" fill="#fff" opacity="0.8"/>
+                        <circle cx="950" cy="30" r="1" fill="#fff" opacity="0.5"/>
+                        <circle cx="400" cy="60" r="1" fill="#fff" opacity="0.6"/>
+                        <circle cx="600" cy="35" r="1.5" fill="#fff" opacity="0.7"/>
+                    </g>
+
+                    <!-- Back mountain -->
+                    <polygon points="0,500 250,150 500,500" fill="url(#mountainGradient2)" opacity="0.5"/>
+                    <polygon points="500,500 750,120 1000,500" fill="url(#mountainGradient2)" opacity="0.5"/>
+
+                    <!-- Main mountain -->
+                    <polygon points="100,500 500,80 900,500" fill="url(#mountainGradient1)"/>
+
+                    <!-- Snow cap -->
+                    <polygon points="450,130 500,80 550,130 525,138 500,115 475,138" fill="#e8eaed"/>
+
+                    <!-- Trails (paths between directories) -->
+                    <g id="trails" stroke="#d97706" stroke-width="2" fill="none" stroke-dasharray="5,5" opacity="0.6">
+                        <!-- Trails will be drawn by JS -->
+                    </g>
+
+                    <!-- Directory markers -->
+                    <g id="dir-markers">
+                        <!-- Directory markers will be placed by JS -->
+                    </g>
+
+                    <!-- Hiker -->
+                    <g class="hiker" id="hiker" transform="translate(480, 265)">
+                        <!-- Shadow -->
+                        <ellipse cx="0" cy="8" rx="10" ry="3" fill="rgba(0,0,0,0.2)"/>
+
+                        <!-- Hiking pole (behind body) -->
+                        <line x1="10" y1="-20" x2="16" y2="6" stroke="#5c4033" stroke-width="2.5" stroke-linecap="round"/>
+                        <circle cx="16" cy="6" r="2" fill="#5c4033"/>
+                        <ellipse cx="10" cy="-21" rx="1.5" ry="2" fill="#3a3a3a"/>
+
+                        <!-- Back leg -->
+                        <path d="M -2 -6 Q -4 2 -6 6" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round" fill="none"/>
+                        <ellipse cx="-6" cy="7" rx="3" ry="2" fill="#4a3728"/>
+
+                        <!-- Front leg -->
+                        <path d="M 2 -6 Q 5 0 4 6" stroke="#1e3a5f" stroke-width="5" stroke-linecap="round" fill="none"/>
+                        <ellipse cx="4" cy="7" rx="3" ry="2" fill="#4a3728"/>
+
+                        <!-- Torso -->
+                        <path d="M -5 -18 Q -6 -12 -3 -6 L 3 -6 Q 6 -12 5 -18 Z" fill="#c2410c"/>
+
+                        <!-- Backpack -->
+                        <rect x="-8" y="-22" width="6" height="12" rx="2" fill="#7c3aed"/>
+                        <rect x="-7" y="-20" width="4" height="3" rx="1" fill="#6d28d9"/>
+                        <line x1="-5" y1="-22" x2="-5" y2="-10" stroke="#5b21b6" stroke-width="0.5"/>
+
+                        <!-- Arm holding pole -->
+                        <path d="M 4 -16 Q 8 -14 10 -20" stroke="#c2410c" stroke-width="3" stroke-linecap="round" fill="none"/>
+                        <circle cx="10" cy="-20" r="2" fill="#fcd9bd"/>
+
+                        <!-- Other arm -->
+                        <path d="M -4 -16 Q -7 -12 -6 -8" stroke="#c2410c" stroke-width="3" stroke-linecap="round" fill="none"/>
+                        <circle cx="-6" cy="-8" r="2" fill="#fcd9bd"/>
+
+                        <!-- Neck -->
+                        <rect x="-2" y="-22" width="4" height="4" fill="#fcd9bd"/>
+
+                        <!-- Head -->
+                        <ellipse cx="0" cy="-28" rx="6" ry="7" fill="#fcd9bd"/>
+
+                        <!-- Hair -->
+                        <path d="M -5 -32 Q -6 -36 -3 -35 Q 0 -38 3 -35 Q 6 -36 5 -32" fill="#4a3728"/>
+
+                        <!-- Hat -->
+                        <ellipse cx="0" cy="-35" rx="8" ry="2" fill="#065f46"/>
+                        <path d="M -6 -35 Q -6 -42 0 -44 Q 6 -42 6 -35 Z" fill="#065f46"/>
+                        <rect x="-6" y="-36" width="12" height="2" fill="#047857"/>
+
+                        <!-- Face -->
+                        <circle cx="-2" cy="-29" r="1" fill="#1f2937"/>
+                        <circle cx="3" cy="-29" r="1" fill="#1f2937"/>
+                        <path d="M -1 -26 Q 0.5 -24.5 2 -26" stroke="#1f2937" stroke-width="0.8" fill="none" stroke-linecap="round"/>
+                    </g>
+
+                </svg>
+            </div>
+
+            <!-- Terminal -->
+            <div class="terminal-container">
+                <div class="terminal-header">
+                    <div class="terminal-dots">
+                        <div class="terminal-dot red"></div>
+                        <div class="terminal-dot yellow"></div>
+                        <div class="terminal-dot green"></div>
+                    </div>
+                    <span class="terminal-title">bash — hiker@mountain</span>
+                </div>
+                <div class="terminal-body" id="terminal-body">
+                    <div class="terminal-output info">Welcome to the CLI Mountain! Type 'help' for a list of commands.</div>
+                    <div class="terminal-input-line">
+                        <span class="terminal-prompt" id="terminal-prompt">hiker@mountain:~$</span>
+                        <input type="text" class="terminal-input" id="terminal-input" autofocus autocomplete="off" spellcheck="false">
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Sidebar -->
+        <aside class="sidebar-right">
+            <div class="backpack-section">
+                <h3 title="Available Commands">🎒 Tools In Your Backpack</h3>
+                <div class="backpack-tools" id="backpack-tools">
+                    <div class="tool-item" data-cmd="pwd" data-loc="/bin/pwd" data-desc="Print working directory - shows where you are"><span class="tool-icon">📍</span> pwd</div>
+                    <div class="tool-item" data-cmd="ls" data-loc="/bin/ls" data-desc="List directory contents - see what's here"><span class="tool-icon">📂</span> ls</div>
+                    <div class="tool-item" data-cmd="cd" data-loc="shell builtin" data-desc="Change directory - move to a new location"><span class="tool-icon">🥾</span> cd</div>
+                    <div class="tool-item" data-cmd="touch" data-loc="/usr/bin/touch" data-desc="Create an empty file - plant a flag"><span class="tool-icon">📄</span> touch</div>
+                    <div class="tool-item" data-cmd="mkdir" data-loc="/usr/bin/mkdir" data-desc="Make a new directory - set up camp"><span class="tool-icon">⛺</span> mkdir</div>
+                    <div class="tool-item" data-cmd="mv" data-loc="/usr/bin/mv" data-desc="Move or rename files and directories"><span class="tool-icon">📦</span> mv</div>
+                    <div class="tool-item" data-cmd="cp" data-loc="/usr/bin/cp" data-desc="Copy files and directories"><span class="tool-icon">📋</span> cp</div>
+                    <div class="tool-item" data-cmd="rm" data-loc="/usr/bin/rm" data-desc="Remove files or directories - use with caution!"><span class="tool-icon">🗑️</span> rm</div>
+                    <div class="tool-item" data-cmd="cat" data-loc="/bin/cat" data-desc="Display file contents - read a note"><span class="tool-icon">📖</span> cat</div>
+                    <div class="tool-item" data-cmd="echo" data-loc="/bin/echo" data-desc="Display text or variables like $PATH"><span class="tool-icon">💬</span> echo</div>
+                    <div class="tool-item" data-cmd="which" data-loc="/usr/bin/which" data-desc="Show the location of a command"><span class="tool-icon">🔍</span> which</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Current Working Directory</h3>
+                <div class="current-location">
+                    <span class="location-icon">📍</span>
+                    <span id="current-path">~</span>
+                </div>
+            </div>
+
+            <div class="file-tree-container">
+                <h3>Map (File Tree)</h3>
+                <div class="file-tree" id="file-tree">
+                    <!-- File tree populated by JS -->
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Tool Tooltip -->
+    <div class="tool-tooltip" id="tool-tooltip">
+        <div class="tooltip-cmd" id="tooltip-cmd">pwd</div>
+        <div class="tooltip-loc" id="tooltip-loc">/bin/pwd</div>
+        <div class="tooltip-desc" id="tooltip-desc">Print working directory</div>
+    </div>
+
+    <!-- File Preview Tooltip -->
+    <div class="file-preview-tooltip" id="file-preview-tooltip">
+        <div class="preview-header">
+            <span>📄</span>
+            <span id="preview-filename">filename.txt</span>
+        </div>
+        <div class="preview-content" id="preview-content"></div>
+    </div>
+
+    <script>
+        // ============================================
+        // File System Simulation
+        // ============================================
+
+        class FileSystem {
+            constructor() {
+                this.root = {
+                    type: 'dir',
+                    name: '/',
+                    children: {
+                        'home': {
+                            type: 'dir',
+                            name: 'home',
+                            children: {
+                                'hiker': {
+                                    type: 'dir',
+                                    name: 'hiker',
+                                    children: {
+                                        'Documents': {
+                                            type: 'dir',
+                                            name: 'Documents',
+                                            children: {
+                                                'notes.txt': {
+                                                    type: 'file',
+                                                    name: 'notes.txt',
+                                                    content: 'Remember: There is a secret in the cave at /var/cave!'
+                                                },
+                                                'map.txt': {
+                                                    type: 'file',
+                                                    name: 'map.txt',
+                                                    content: 'Trail Guide:\n- Base camp: ~\n- Secret cave: /var/cave\n- System configs: /etc'
+                                                }
+                                            }
+                                        },
+                                        'Downloads': {
+                                            type: 'dir',
+                                            name: 'Downloads',
+                                            children: {}
+                                        },
+                                        'Pictures': {
+                                            type: 'dir',
+                                            name: 'Pictures',
+                                            children: {
+                                                'sunset.jpg': {
+                                                    type: 'file',
+                                                    name: 'sunset.jpg',
+                                                    content: '[Beautiful mountain sunset image]'
+                                                }
+                                            }
+                                        },
+                                        '.hidden_treasure': {
+                                            type: 'file',
+                                            name: '.hidden_treasure',
+                                            content: '🏆 You found the hidden treasure!'
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        'etc': {
+                            type: 'dir',
+                            name: 'etc',
+                            children: {
+                                'config': {
+                                    type: 'file',
+                                    name: 'config',
+                                    content: 'system_name=MountainOS\nversion=1.0'
+                                }
+                            }
+                        },
+                        'var': {
+                            type: 'dir',
+                            name: 'var',
+                            children: {
+                                'cave': {
+                                    type: 'dir',
+                                    name: 'cave',
+                                    children: {
+                                        'hint.txt': {
+                                            type: 'file',
+                                            name: 'hint.txt',
+                                            content: 'The ancient scroll is hidden from plain sight.\nIn Unix, files that start with a dot (.) are hidden.\nUse "ls -a" to reveal all files, even hidden ones.'
+                                        },
+                                        '.ancient_scroll.txt': {
+                                            type: 'file',
+                                            name: '.ancient_scroll.txt',
+                                            content: '📜 THE ANCIENT SCROLL OF CLI WISDOM 📜\n\nThe wise hiker knows:\n\n  cd ..        → climb up to parent\n  cd dirname   → descend into directory\n  pwd          → know thy location\n  ls -a        → see the unseen\n\nRemember: Files starting with . are hidden.\nThey hold secrets for those who seek.'
+                                        }
+                                    }
+                                },
+                                'log': {
+                                    type: 'dir',
+                                    name: 'log',
+                                    children: {}
+                                }
+                            }
+                        },
+                        'bin': {
+                            type: 'dir',
+                            name: 'bin',
+                            children: {
+                                'ls': { type: 'file', name: 'ls', content: '#!/bin/bash\n# List directory contents\n# This is the ls command binary' },
+                                'pwd': { type: 'file', name: 'pwd', content: '#!/bin/bash\n# Print working directory\n# This is the pwd command binary' },
+                                'cat': { type: 'file', name: 'cat', content: '#!/bin/bash\n# Concatenate and print files\n# This is the cat command binary' },
+                                'echo': { type: 'file', name: 'echo', content: '#!/bin/bash\n# Display a line of text\n# This is the echo command binary' }
+                            }
+                        },
+                        'usr': {
+                            type: 'dir',
+                            name: 'usr',
+                            children: {
+                                'bin': {
+                                    type: 'dir',
+                                    name: 'bin',
+                                    children: {
+                                        'mkdir': { type: 'file', name: 'mkdir', content: '#!/bin/bash\n# Make directories\n# This is the mkdir command binary' },
+                                        'touch': { type: 'file', name: 'touch', content: '#!/bin/bash\n# Change file timestamps or create empty files\n# This is the touch command binary' },
+                                        'rm': { type: 'file', name: 'rm', content: '#!/bin/bash\n# Remove files or directories\n# This is the rm command binary' },
+                                        'cp': { type: 'file', name: 'cp', content: '#!/bin/bash\n# Copy files and directories\n# This is the cp command binary' },
+                                        'mv': { type: 'file', name: 'mv', content: '#!/bin/bash\n# Move (rename) files\n# This is the mv command binary' },
+                                        'grep': { type: 'file', name: 'grep', content: '#!/bin/bash\n# Search for patterns in files\n# This is the grep command binary' },
+                                        'sort': { type: 'file', name: 'sort', content: '#!/bin/bash\n# Sort lines of text\n# This is the sort command binary' }
+                                    }
+                                },
+                                'local': {
+                                    type: 'dir',
+                                    name: 'local',
+                                    children: {
+                                        'bin': {
+                                            type: 'dir',
+                                            name: 'bin',
+                                            children: {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                };
+
+                this.currentPath = '/home/hiker';
+                this.homeDir = '/home/hiker';
+                this.PATH = '/bin:/usr/bin:/usr/local/bin';
+            }
+
+            // Resolve a path (handle ~, .., ., relative and absolute)
+            resolvePath(path) {
+                if (!path || path === '~') {
+                    return this.homeDir;
+                }
+
+                // Replace ~ with home directory
+                if (path.startsWith('~/')) {
+                    path = this.homeDir + path.slice(1);
+                } else if (path === '~') {
+                    path = this.homeDir;
+                }
+
+                // Handle absolute vs relative paths
+                let parts;
+                if (path.startsWith('/')) {
+                    parts = path.split('/').filter(p => p);
+                } else {
+                    parts = [...this.currentPath.split('/').filter(p => p), ...path.split('/').filter(p => p)];
+                }
+
+                // Process . and ..
+                const resolved = [];
+                for (const part of parts) {
+                    if (part === '.') {
+                        continue;
+                    } else if (part === '..') {
+                        resolved.pop();
+                    } else {
+                        resolved.push(part);
+                    }
+                }
+
+                return '/' + resolved.join('/');
+            }
+
+            // Get node at path
+            getNode(path) {
+                const resolved = this.resolvePath(path);
+                if (resolved === '/') return this.root;
+
+                const parts = resolved.split('/').filter(p => p);
+                let current = this.root;
+
+                for (const part of parts) {
+                    if (!current.children || !current.children[part]) {
+                        return null;
+                    }
+                    current = current.children[part];
+                }
+
+                return current;
+            }
+
+            // Get display path (replace home with ~)
+            getDisplayPath(path = this.currentPath) {
+                if (path === this.homeDir) return '~';
+                if (path.startsWith(this.homeDir + '/')) {
+                    return '~' + path.slice(this.homeDir.length);
+                }
+                return path || '/';
+            }
+
+            // List directory contents
+            ls(path = '.', showHidden = false) {
+                const node = this.getNode(path);
+                if (!node) return { error: `ls: cannot access '${path}': No such file or directory` };
+                if (node.type !== 'dir') return { error: `ls: '${path}': Not a directory` };
+
+                const items = Object.keys(node.children)
+                    .filter(name => showHidden || !name.startsWith('.'))
+                    .sort();
+
+                return { items, node };
+            }
+
+            // Change directory
+            cd(path) {
+                if (!path || path === '~') {
+                    this.currentPath = this.homeDir;
+                    return { success: true };
+                }
+
+                const resolved = this.resolvePath(path);
+                const node = this.getNode(resolved);
+
+                if (!node) {
+                    return { error: `cd: ${path}: No such file or directory` };
+                }
+                if (node.type !== 'dir') {
+                    return { error: `cd: ${path}: Not a directory` };
+                }
+
+                this.currentPath = resolved;
+                return { success: true };
+            }
+
+            // Make directory
+            mkdir(path) {
+                const resolved = this.resolvePath(path);
+                const parts = resolved.split('/').filter(p => p);
+                const newDirName = parts.pop();
+                const parentPath = '/' + parts.join('/');
+
+                const parent = this.getNode(parentPath);
+                if (!parent) {
+                    return { error: `mkdir: cannot create directory '${path}': No such file or directory` };
+                }
+                if (parent.children[newDirName]) {
+                    return { error: `mkdir: cannot create directory '${path}': File exists` };
+                }
+
+                parent.children[newDirName] = {
+                    type: 'dir',
+                    name: newDirName,
+                    children: {}
+                };
+
+                return { success: true, path: resolved };
+            }
+
+            // Create file
+            touch(path) {
+                const resolved = this.resolvePath(path);
+                const parts = resolved.split('/').filter(p => p);
+                const fileName = parts.pop();
+                const parentPath = '/' + parts.join('/');
+
+                const parent = this.getNode(parentPath);
+                if (!parent) {
+                    return { error: `touch: cannot touch '${path}': No such file or directory` };
+                }
+
+                if (!parent.children[fileName]) {
+                    parent.children[fileName] = {
+                        type: 'file',
+                        name: fileName,
+                        content: ''
+                    };
+                }
+
+                return { success: true, path: resolved };
+            }
+
+            // Read file
+            cat(path) {
+                const node = this.getNode(path);
+                if (!node) {
+                    return { error: `cat: ${path}: No such file or directory` };
+                }
+                if (node.type === 'dir') {
+                    return { error: `cat: ${path}: Is a directory` };
+                }
+                return { content: node.content };
+            }
+
+            // Remove file/directory
+            rm(path, recursive = false) {
+                const resolved = this.resolvePath(path);
+                const parts = resolved.split('/').filter(p => p);
+                const targetName = parts.pop();
+                const parentPath = '/' + parts.join('/');
+
+                const parent = this.getNode(parentPath);
+                const target = parent?.children[targetName];
+
+                if (!target) {
+                    return { error: `rm: cannot remove '${path}': No such file or directory` };
+                }
+
+                if (target.type === 'dir' && !recursive) {
+                    return { error: `rm: cannot remove '${path}': Is a directory (use rm -r)` };
+                }
+
+                delete parent.children[targetName];
+                return { success: true };
+            }
+
+            // Move/rename
+            mv(source, dest) {
+                const sourceResolved = this.resolvePath(source);
+                const sourceParts = sourceResolved.split('/').filter(p => p);
+                const sourceName = sourceParts.pop();
+                const sourceParentPath = '/' + sourceParts.join('/');
+
+                const sourceParent = this.getNode(sourceParentPath);
+                const sourceNode = sourceParent?.children[sourceName];
+
+                if (!sourceNode) {
+                    return { error: `mv: cannot stat '${source}': No such file or directory` };
+                }
+
+                const destResolved = this.resolvePath(dest);
+                let destNode = this.getNode(destResolved);
+
+                // If dest is a directory, move into it
+                if (destNode && destNode.type === 'dir') {
+                    destNode.children[sourceName] = sourceNode;
+                    delete sourceParent.children[sourceName];
+                    return { success: true };
+                }
+
+                // Otherwise, rename/move to new location
+                const destParts = destResolved.split('/').filter(p => p);
+                const destName = destParts.pop();
+                const destParentPath = '/' + destParts.join('/');
+
+                const destParent = this.getNode(destParentPath);
+                if (!destParent) {
+                    return { error: `mv: cannot move '${source}' to '${dest}': No such file or directory` };
+                }
+
+                destParent.children[destName] = sourceNode;
+                sourceNode.name = destName;
+                delete sourceParent.children[sourceName];
+
+                return { success: true };
+            }
+
+            // Copy
+            cp(source, dest) {
+                const sourceNode = this.getNode(source);
+                if (!sourceNode) {
+                    return { error: `cp: cannot stat '${source}': No such file or directory` };
+                }
+                if (sourceNode.type === 'dir') {
+                    return { error: `cp: -r not specified; omitting directory '${source}'` };
+                }
+
+                const destResolved = this.resolvePath(dest);
+                let destNode = this.getNode(destResolved);
+
+                // Deep clone the source
+                const clone = JSON.parse(JSON.stringify(sourceNode));
+
+                // If dest is a directory, copy into it
+                if (destNode && destNode.type === 'dir') {
+                    destNode.children[sourceNode.name] = clone;
+                    return { success: true };
+                }
+
+                // Otherwise, copy to new location with new name
+                const destParts = destResolved.split('/').filter(p => p);
+                const destName = destParts.pop();
+                const destParentPath = '/' + destParts.join('/');
+
+                const destParent = this.getNode(destParentPath);
+                if (!destParent) {
+                    return { error: `cp: cannot create '${dest}': No such file or directory` };
+                }
+
+                clone.name = destName;
+                destParent.children[destName] = clone;
+
+                return { success: true };
+            }
+        }
+
+        // ============================================
+        // Lessons/Tutorial System
+        // ============================================
+
+        const lessons = [
+            {
+                id: 1,
+                title: "Find Your Location",
+                description: "As a hiker, the first thing you need to know is WHERE you are. The <span class='cmd'>pwd</span> command (print working directory) shows your current location on the mountain.  The result is always a full path from the root directory. The home directory is often referred to as ~/, so you might see paths like /home/hiker/Documents or ~/Documents.",
+                task: "Type <span class='cmd'>pwd</span> to see your current location",
+                check: (cmd) => cmd.trim() === 'pwd',
+                hint: "pwd"
+            },
+            {
+                id: 2,
+                title: "Look Around",
+                description: "Now that you know where you are, look around to see what's nearby. The <span class='cmd'>ls</span> command lists all files and directories (trails) at your current location.",
+                task: "Type <span class='cmd'>ls</span> to see what's at your current location",
+                check: (cmd) => cmd.trim() === 'ls' || cmd.trim() === 'ls -l' || cmd.trim() === 'ls -a',
+                hint: "ls"
+            },
+            {
+                id: 3,
+                title: "Hike Down a Trail",
+                description: "Time to explore! Use <span class='cmd'>cd</span> (change directory) followed by a directory name to hike down into that location. It's like taking a trail down the mountain.",
+                task: "Type <span class='cmd'>cd Documents</span> to enter the Documents directory",
+                check: (cmd) => cmd.trim() === 'cd Documents',
+                hint: "cd Documents"
+            },
+            {
+                id: 4,
+                title: "Climb Back Up",
+                description: "To go back up to where you came from, use <span class='cmd'>cd ..</span> — the two dots mean 'parent directory'. Think of it as climbing back up the trail.",
+                task: "Type <span class='cmd'>cd ..</span> to go back to your home directory",
+                check: (cmd) => cmd.trim() === 'cd ..',
+                hint: "cd .."
+            },
+            {
+                id: 5,
+                title: "Make Camp",
+                description: "Hikers set up camps along the trail. In the file system, we create directories with <span class='cmd'>mkdir</span> (make directory). This creates a new 'campsite'.",
+                task: "Type <span class='cmd'>mkdir MyCamp</span> to create a new directory",
+                check: (cmd) => cmd.trim().startsWith('mkdir '),
+                hint: "mkdir MyCamp"
+            },
+            {
+                id: 6,
+                title: "Plant a Flag",
+                description: "Mark your location by creating a file with <span class='cmd'>touch</span>. It's like planting a flag at your campsite!",
+                task: "Type <span class='cmd'>touch flag.txt</span> to create a new file",
+                check: (cmd) => cmd.trim().startsWith('touch '),
+                hint: "touch flag.txt"
+            },
+            {
+                id: 7,
+                title: "Read a Trail Note",
+                description: "Other hikers have left notes along the trails. Use <span class='cmd'>cat</span> to read the contents of a file.",
+                task: "Navigate to Documents and type <span class='cmd'>cat notes.txt</span> to read a note",
+                check: (cmd) => cmd.trim().startsWith('cat '),
+                hint: "cd Documents, then cat notes.txt"
+            },
+            {
+                id: 8,
+                title: "Check Your Backpack",
+                description: "Your backpack holds a map of where all your tools (commands) are stored. The PATH environment variable lists the directories the system searches for commands. Use <span class='cmd'>echo $PATH</span> to see it.",
+                task: "Type <span class='cmd'>echo $PATH</span> to see where commands are located",
+                check: (cmd) => cmd.trim() === 'echo $PATH',
+                hint: "echo $PATH"
+            },
+            {
+                id: 9,
+                title: "Find Your Tools",
+                description: "Commands like <span class='cmd'>ls</span> are programs stored somewhere on the mountain. The <span class='cmd'>which</span> command tells you exactly where a command lives. Try finding where <span class='cmd'>ls</span> is located.",
+                task: "Type <span class='cmd'>which ls</span> to find where the ls command is stored",
+                check: (cmd) => cmd.trim() === 'which ls',
+                hint: "which ls"
+            },
+            {
+                id: 10,
+                title: "Discover the secret in the cave",
+                description: "Use absolute paths to navigate anywhere on the mountain. There's a hidden cave with ancient wisdom at <span class='cmd'>/var/cave</span>.",
+                task: "Type <span class='cmd'>cd /var/cave</span> to discover the secret in the cave!",
+                check: (cmd) => cmd.trim() === 'cd /var/cave',
+                hint: "cd /var/cave"
+            }
+        ];
+
+        // ============================================
+        // App State
+        // ============================================
+
+        const fs = new FileSystem();
+        let currentLesson = 0;
+        let completedLessons = new Set();
+        let commandHistory = [];
+        let historyIndex = -1;
+
+        // Track which directories are expanded in the file tree
+        // By default, only show the path to /home/hiker expanded
+        let expandedDirs = new Set(['/', '/home', '/home/hiker']);
+
+        // ============================================
+        // Directory positions on the mountain
+        // ============================================
+
+        const dirPositions = {
+            '/': { x: 500, y: 140 },
+            '/home': { x: 400, y: 220 },
+            '/home/hiker': { x: 480, y: 300 },
+            '/home/hiker/Documents': { x: 360, y: 380 },
+            '/home/hiker/Downloads': { x: 480, y: 390 },
+            '/home/hiker/Pictures': { x: 600, y: 380 },
+            '/bin': { x: 580, y: 220 },
+            '/etc': { x: 650, y: 200 },
+            '/var': { x: 300, y: 220 },
+            '/var/cave': { x: 200, y: 320 },
+            '/var/log': { x: 320, y: 330 },
+            '/usr': { x: 750, y: 260 },
+            '/usr/bin': { x: 700, y: 350 },
+            '/usr/local': { x: 820, y: 350 },
+            '/usr/local/bin': { x: 870, y: 420 }
+        };
+
+        // Track dynamically added trails
+        const dynamicTrails = [];
+
+        // Track recently added directories for animation
+        let recentlyAddedPaths = new Set();
+
+        // Function to add a position for a new directory
+        function addDirPosition(path) {
+            if (dirPositions[path]) return dirPositions[path]; // Already exists
+
+            // Find parent directory position
+            const parts = path.split('/').filter(p => p);
+            const parentPath = parts.length > 1 ? '/' + parts.slice(0, -1).join('/') : '/';
+            const parentPos = dirPositions[parentPath] || dirPositions['/home/hiker'] || { x: 500, y: 270 };
+
+            // Count existing children of parent to spread them out
+            const siblings = Object.keys(dirPositions).filter(p => {
+                const pParts = p.split('/').filter(x => x);
+                const pParent = pParts.length > 1 ? '/' + pParts.slice(0, -1).join('/') : '/';
+                return pParent === parentPath && p !== path;
+            });
+
+            // Calculate position offset based on number of siblings
+            const offsetIndex = siblings.length;
+            const xOffset = (offsetIndex % 3 - 1) * 90; // Spread left/center/right
+            const yOffset = 80 + Math.floor(offsetIndex / 3) * 50; // Stack vertically if many
+
+            // New position below and offset from parent
+            const newPos = {
+                x: Math.max(120, Math.min(880, parentPos.x + xOffset)),
+                y: Math.min(470, parentPos.y + yOffset)
+            };
+
+            dirPositions[path] = newPos;
+            dynamicTrails.push([parentPath, path]);
+
+            // Mark as recently added for animation
+            recentlyAddedPaths.add(path);
+
+            return newPos;
+        }
+
+        // Function to remove a directory position
+        function removeDirPosition(path) {
+            delete dirPositions[path];
+
+            // Remove any trails involving this path
+            for (let i = dynamicTrails.length - 1; i >= 0; i--) {
+                if (dynamicTrails[i][0] === path || dynamicTrails[i][1] === path) {
+                    dynamicTrails.splice(i, 1);
+                }
+            }
+        }
+
+        // ============================================
+        // DOM Elements
+        // ============================================
+
+        const terminalInput = document.getElementById('terminal-input');
+        const terminalBody = document.getElementById('terminal-body');
+        const terminalPrompt = document.getElementById('terminal-prompt');
+        const currentPathDisplay = document.getElementById('current-path');
+        const lessonList = document.getElementById('lesson-list');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const progressPercent = document.getElementById('progress-percent');
+        const tutorialTitle = document.getElementById('tutorial-title');
+        const tutorialText = document.getElementById('tutorial-text');
+        const taskCommand = document.getElementById('task-command');
+        const fileTree = document.getElementById('file-tree');
+        const mountainSvg = document.getElementById('mountain-svg');
+        const hiker = document.getElementById('hiker');
+
+        // ============================================
+        // Rendering Functions
+        // ============================================
+
+        function renderLessons() {
+            lessonList.innerHTML = lessons.map((lesson, index) => {
+                let className = 'lesson-item';
+                if (completedLessons.has(index)) {
+                    className += ' completed';
+                } else if (index === currentLesson) {
+                    className += ' current';
+                } else if (index > currentLesson && !completedLessons.has(index - 1)) {
+                    className += ' locked';
+                }
+
+                return `
+                    <div class="${className}" data-lesson="${index}">
+                        <div class="check-icon">${completedLessons.has(index) ? '✓' : ''}</div>
+                        <span>${lesson.title}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Update progress
+            const completed = completedLessons.size;
+            const total = lessons.length;
+            const percent = Math.round((completed / total) * 100);
+
+            progressBar.style.width = `${percent}%`;
+            progressText.textContent = `${completed} of ${total} trails completed`;
+            progressPercent.textContent = `${percent}%`;
+        }
+
+        function renderTutorial() {
+            const lesson = lessons[currentLesson];
+            if (!lesson) {
+                tutorialTitle.textContent = "🎉 All Trails Complete!";
+                tutorialText.textContent = "Congratulations! You've mastered the basics of CLI navigation. You're now a true mountain explorer!";
+                taskCommand.innerHTML = "Try exploring on your own or type <span class='cmd'>help</span> for more commands";
+                return;
+            }
+
+            tutorialTitle.innerHTML = `<span>🏔️</span> Trail ${lesson.id}: ${lesson.title}`;
+            tutorialText.innerHTML = lesson.description;
+            taskCommand.innerHTML = lesson.task;
+        }
+
+        function renderFileTree(node = fs.root, path = '', depth = 0) {
+            const currentResolved = fs.resolvePath('.');
+            let html = '';
+
+            const children = Object.values(node.children || {}).sort((a, b) => {
+                // Directories first, then files
+                if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            for (const child of children) {
+                if (child.name.startsWith('.')) continue; // Skip hidden files
+
+                const childPath = path + '/' + child.name;
+                const isCurrent = childPath === currentResolved;
+                const isDir = child.type === 'dir';
+                const isExpanded = expandedDirs.has(childPath);
+                const hasChildren = isDir && child.children && Object.keys(child.children).length > 0;
+
+                html += `
+                    <div class="tree-item ${isDir ? 'dir' : 'file'} ${isCurrent ? 'current' : ''} ${isDir && !isExpanded ? 'collapsed' : ''}"
+                         style="padding-left: ${depth * 12}px"
+                         data-path="${childPath}">
+                        ${isDir && hasChildren ? `<span class="tree-toggle">▼</span>` : isDir ? `<span class="tree-toggle" style="visibility:hidden">▼</span>` : ''}
+                        <span class="tree-icon">${isDir ? '📁' : '📄'}</span>
+                        <span class="tree-name">${child.name}</span>
+                    </div>
+                `;
+
+                if (isDir && child.children) {
+                    const childrenHtml = renderFileTree(child, childPath, depth + 1);
+                    html += `<div class="tree-children ${!isExpanded ? 'collapsed' : ''}" data-parent="${childPath}">${childrenHtml}</div>`;
+                }
+            }
+
+            return html;
+        }
+
+        function updateFileTree() {
+            fileTree.innerHTML = renderFileTree();
+        }
+
+        function toggleDirectory(path) {
+            if (expandedDirs.has(path)) {
+                expandedDirs.delete(path);
+            } else {
+                expandedDirs.add(path);
+            }
+            updateFileTree();
+        }
+
+        function updatePrompt() {
+            const displayPath = fs.getDisplayPath();
+            terminalPrompt.textContent = `hiker@mountain:${displayPath}$`;
+
+            // For the sidebar, show full path with tilde explanation only for home dir
+            const fullPath = fs.currentPath;
+            if (fullPath === fs.homeDir) {
+                currentPathDisplay.textContent = `${fullPath} \n\n(usually referred to as ~)`;
+            } else {
+                currentPathDisplay.textContent = fullPath;
+            }
+        }
+
+        function moveHiker(animate = true) {
+            const currentPath = fs.currentPath;
+            // If no position exists for current path, create one
+            if (!dirPositions[currentPath]) {
+                addDirPosition(currentPath);
+                renderTrails();
+                renderDirMarkers();
+            }
+            const pos = dirPositions[currentPath] || { x: 500, y: 270 };
+
+            if (animate) {
+                hiker.classList.add('walking');
+                setTimeout(() => hiker.classList.remove('walking'), 800);
+            }
+
+            hiker.setAttribute('transform', `translate(${pos.x}, ${pos.y - 35})`);
+        }
+
+        function renderDirMarkers() {
+            const markersGroup = document.getElementById('dir-markers');
+            let html = '';
+
+            for (const [path, pos] of Object.entries(dirPositions)) {
+                const name = path === '/' ? '/' : path.split('/').pop();
+                const isCurrentDir = fs.currentPath === path;
+                const isNew = recentlyAddedPaths.has(path);
+
+                // Different colors: current=purple, new=green, default=orange
+                let fillColor = '#d97706';
+                if (isCurrentDir) fillColor = '#a371f7';
+                else if (isNew) fillColor = '#3fb950';
+
+                // Campsite/marker icon
+                html += `
+                    <g class="dir-marker ${isNew ? 'new' : ''}" data-path="${path}" transform="translate(${pos.x}, ${pos.y})">
+                        <circle r="10" fill="${fillColor}" opacity="0.8"/>
+                        <circle r="5" fill="#fff"/>
+                        <text class="dir-label" y="24" text-anchor="middle">${name}</text>
+                    </g>
+                `;
+            }
+
+            markersGroup.innerHTML = html;
+
+            // Clear the recently added set after a delay
+            if (recentlyAddedPaths.size > 0) {
+                setTimeout(() => {
+                    recentlyAddedPaths.clear();
+                }, 600);
+            }
+        }
+
+        function renderTrails() {
+            const trailsGroup = document.getElementById('trails');
+            let html = '';
+
+            // Define base trail connections
+            const baseTrails = [
+                ['/', '/home'],
+                ['/', '/bin'],
+                ['/', '/etc'],
+                ['/', '/var'],
+                ['/', '/usr'],
+                ['/home', '/home/hiker'],
+                ['/home/hiker', '/home/hiker/Documents'],
+                ['/home/hiker', '/home/hiker/Downloads'],
+                ['/home/hiker', '/home/hiker/Pictures'],
+                ['/var', '/var/cave'],
+                ['/var', '/var/log'],
+                ['/usr', '/usr/bin'],
+                ['/usr', '/usr/local'],
+                ['/usr/local', '/usr/local/bin']
+            ];
+
+            // Combine base trails with dynamic trails
+            const allTrails = [...baseTrails, ...dynamicTrails];
+
+            for (const [from, to] of allTrails) {
+                const fromPos = dirPositions[from];
+                const toPos = dirPositions[to];
+                if (fromPos && toPos) {
+                    html += `<line x1="${fromPos.x}" y1="${fromPos.y}" x2="${toPos.x}" y2="${toPos.y}"/>`;
+                }
+            }
+
+            trailsGroup.innerHTML = html;
+        }
+
+        // ============================================
+        // Terminal Output
+        // ============================================
+
+        function addOutput(text, type = '') {
+            const inputLine = terminalBody.querySelector('.terminal-input-line');
+            const output = document.createElement('div');
+            output.className = `terminal-output ${type} fade-in`;
+            output.textContent = text;
+            terminalBody.insertBefore(output, inputLine);
+            terminalBody.scrollTop = terminalBody.scrollHeight;
+        }
+
+        function addCommandEcho(cmd) {
+            const inputLine = terminalBody.querySelector('.terminal-input-line');
+            const echo = document.createElement('div');
+            echo.className = 'terminal-output fade-in';
+            echo.innerHTML = `<span style="color: var(--accent-green)">${terminalPrompt.textContent}</span> ${cmd}`;
+            terminalBody.insertBefore(echo, inputLine);
+        }
+
+        // ============================================
+        // Command Processing
+        // ============================================
+
+        function processCommand(input) {
+            const trimmed = input.trim();
+            if (!trimmed) return;
+
+            addCommandEcho(trimmed);
+            commandHistory.push(trimmed);
+            historyIndex = commandHistory.length;
+
+            const parts = trimmed.split(/\s+/);
+            const cmd = parts[0];
+            const args = parts.slice(1);
+
+            // Check lesson completion
+            const lesson = lessons[currentLesson];
+            if (lesson && lesson.check(trimmed)) {
+                completedLessons.add(currentLesson);
+                currentLesson++;
+
+                setTimeout(() => {
+                    addOutput(`✅ Trail completed! ${lesson.title}`, 'success');
+                    renderLessons();
+                    renderTutorial();
+                }, 100);
+            }
+
+            // Process commands
+            switch (cmd) {
+                case 'pwd':
+                    addOutput(fs.currentPath);
+                    break;
+
+                case 'ls': {
+                    const showHidden = args.includes('-a') || args.includes('-la') || args.includes('-al');
+                    const path = args.find(a => !a.startsWith('-')) || '.';
+                    const result = fs.ls(path, showHidden);
+
+                    if (result.error) {
+                        addOutput(result.error, 'error');
+                    } else if (result.items.length === 0) {
+                        addOutput('(empty directory)', 'info');
+                    } else {
+                        // Color directories differently
+                        const node = result.node;
+                        const formatted = result.items.map(name => {
+                            const child = node.children[name];
+                            return child.type === 'dir' ? `📁 ${name}/` : `📄 ${name}`;
+                        }).join('\n');
+                        addOutput(formatted);
+                    }
+                    break;
+                }
+
+                case 'cd': {
+                    const path = args[0];
+                    const result = fs.cd(path);
+
+                    if (result.error) {
+                        addOutput(result.error, 'error');
+                    } else {
+                        updatePrompt();
+                        moveHiker();
+
+                        // Expand the path to current directory in the file tree
+                        const parts = fs.currentPath.split('/').filter(p => p);
+                        let expandPath = '';
+                        for (const part of parts) {
+                            expandPath += '/' + part;
+                            expandedDirs.add(expandPath);
+                        }
+
+                        updateFileTree();
+                        renderDirMarkers();
+
+                        // Special messages for certain locations
+                        if (fs.currentPath === '/var/cave') {
+                            addOutput('🦇 You entered the secret cave!', 'success');
+                            addOutput('💡 There\'s a hint.txt file here. Try reading it with: cat hint.txt', 'info');
+                        }
+                    }
+                    break;
+                }
+
+                case 'mkdir': {
+                    if (!args[0]) {
+                        addOutput('mkdir: missing operand', 'error');
+                        break;
+                    }
+                    const result = fs.mkdir(args[0]);
+                    if (result.error) {
+                        addOutput(result.error, 'error');
+                    } else {
+                        addOutput(`⛺ Created campsite: ${args[0]}`, 'success');
+                        // Add position for the new directory on the mountain
+                        addDirPosition(result.path);
+                        updateFileTree();
+                        renderTrails();
+                        renderDirMarkers();
+                    }
+                    break;
+                }
+
+                case 'touch': {
+                    if (!args[0]) {
+                        addOutput('touch: missing file operand', 'error');
+                        break;
+                    }
+                    const result = fs.touch(args[0]);
+                    if (result.error) {
+                        addOutput(result.error, 'error');
+                    } else {
+                        addOutput(`🚩 Planted flag: ${args[0]}`, 'success');
+                        updateFileTree();
+                    }
+                    break;
+                }
+
+                case 'cat': {
+                    if (!args[0]) {
+                        addOutput('cat: missing file operand', 'error');
+                        break;
+                    }
+                    const result = fs.cat(args[0]);
+                    if (result.error) {
+                        addOutput(result.error, 'error');
+                    } else {
+                        addOutput(result.content || '(empty file)');
+                    }
+                    break;
+                }
+
+                case 'rm': {
+                    if (!args[0]) {
+                        addOutput('rm: missing operand', 'error');
+                        break;
+                    }
+                    const recursive = args.includes('-r') || args.includes('-rf') || args.includes('-fr');
+                    const pathArg = args.find(a => !a.startsWith('-'));
+                    const resolvedRmPath = fs.resolvePath(pathArg);
+                    const result = fs.rm(pathArg, recursive);
+                    if (result.error) {
+                        addOutput(result.error, 'error');
+                    } else {
+                        addOutput(`🗑️ Removed: ${pathArg}`, 'success');
+                        // Remove position from mountain if it was a directory
+                        removeDirPosition(resolvedRmPath);
+                        updateFileTree();
+                        renderTrails();
+                        renderDirMarkers();
+                    }
+                    break;
+                }
+
+                case 'mv': {
+                    if (args.length < 2) {
+                        addOutput('mv: missing destination file operand', 'error');
+                        break;
+                    }
+                    const result = fs.mv(args[0], args[1]);
+                    if (result.error) {
+                        addOutput(result.error, 'error');
+                    } else {
+                        addOutput(`📦 Moved: ${args[0]} → ${args[1]}`, 'success');
+                        updateFileTree();
+                    }
+                    break;
+                }
+
+                case 'cp': {
+                    if (args.length < 2) {
+                        addOutput('cp: missing destination file operand', 'error');
+                        break;
+                    }
+                    const result = fs.cp(args[0], args[1]);
+                    if (result.error) {
+                        addOutput(result.error, 'error');
+                    } else {
+                        addOutput(`📋 Copied: ${args[0]} → ${args[1]}`, 'success');
+                        updateFileTree();
+                    }
+                    break;
+                }
+
+                case 'clear':
+                    const inputLine = terminalBody.querySelector('.terminal-input-line');
+                    terminalBody.innerHTML = '';
+                    terminalBody.appendChild(inputLine);
+                    break;
+
+                case 'help':
+                    addOutput(`
+Available commands:
+  pwd          - Print working directory (Where am I?)
+  ls [-a]      - List directory contents
+  cd <dir>     - Change directory
+  mkdir <dir>  - Make a new directory
+  touch <file> - Create an empty file
+  cat <file>   - Display file contents
+  rm [-r] <path> - Remove file or directory
+  mv <src> <dest> - Move/rename
+  cp <src> <dest> - Copy
+  echo <text>  - Display text (supports $PATH, $HOME, $PWD)
+  which <cmd>  - Show location of a command
+  clear        - Clear the terminal
+  help         - Show this help message
+  hint         - Get a hint for the current task
+
+Navigation tips:
+  cd ..        - Go up one level
+  cd ~         - Go to home directory
+  cd /         - Go to root
+  cd /path     - Go to absolute path
+
+Environment variables:
+  echo $PATH   - Show command search path
+  echo $HOME   - Show home directory
+  echo $PWD    - Show current directory
+                    `.trim(), 'info');
+                    break;
+
+                case 'hint':
+                    const currentLessonObj = lessons[currentLesson];
+                    if (currentLessonObj) {
+                        addOutput(`💡 Hint: Try typing '${currentLessonObj.hint}'`, 'info');
+                    } else {
+                        addOutput('No current task. Try exploring on your own!', 'info');
+                    }
+                    break;
+
+                case 'which': {
+                    if (!args[0]) {
+                        addOutput('which: missing argument', 'error');
+                    } else {
+                        // Search through PATH directories
+                        const pathDirs = fs.PATH.split(':');
+                        let found = false;
+                        for (const dir of pathDirs) {
+                            const node = fs.getNode(dir);
+                            if (node && node.children && node.children[args[0]]) {
+                                addOutput(`${dir}/${args[0]}`);
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            // Check for shell builtins
+                            const builtins = ['cd', 'clear', 'help', 'hint', 'exit'];
+                            if (builtins.includes(args[0])) {
+                                addOutput(`${args[0]}: shell built-in command`);
+                            } else {
+                                addOutput(`${args[0]} not found`, 'error');
+                            }
+                        }
+                    }
+                    break;
+                }
+
+                case 'echo': {
+                    // Handle environment variables
+                    const text = args.join(' ');
+                    const expanded = text.replace(/\$PATH/g, fs.PATH)
+                                        .replace(/\$HOME/g, fs.homeDir)
+                                        .replace(/\$PWD/g, fs.currentPath);
+                    addOutput(expanded);
+                    break;
+                }
+
+                default:
+                    addOutput(`${cmd}: command not found. Type 'help' for available commands.`, 'error');
+            }
+        }
+
+        // ============================================
+        // Event Listeners
+        // ============================================
+
+        terminalInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                processCommand(terminalInput.value);
+                terminalInput.value = '';
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    terminalInput.value = commandHistory[historyIndex] || '';
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (historyIndex < commandHistory.length - 1) {
+                    historyIndex++;
+                    terminalInput.value = commandHistory[historyIndex] || '';
+                } else {
+                    historyIndex = commandHistory.length;
+                    terminalInput.value = '';
+                }
+            } else if (e.key === 'Tab') {
+                e.preventDefault();
+                // Simple tab completion
+                const input = terminalInput.value;
+                const parts = input.split(/\s+/);
+                const lastPart = parts[parts.length - 1];
+
+                if (lastPart) {
+                    const currentDir = fs.getNode('.');
+                    if (currentDir && currentDir.children) {
+                        const matches = Object.keys(currentDir.children)
+                            .filter(name => name.startsWith(lastPart));
+
+                        if (matches.length === 1) {
+                            parts[parts.length - 1] = matches[0];
+                            terminalInput.value = parts.join(' ');
+                        } else if (matches.length > 1) {
+                            addOutput(matches.join('  '), 'info');
+                        }
+                    }
+                }
+            }
+        });
+
+        // Click on directory markers to navigate
+        document.addEventListener('click', (e) => {
+            const marker = e.target.closest('.dir-marker');
+            if (marker) {
+                const path = marker.dataset.path;
+                processCommand(`cd ${path}`);
+            }
+
+            const treeItem = e.target.closest('.tree-item');
+            if (treeItem && treeItem.classList.contains('dir')) {
+                const path = treeItem.dataset.path;
+                // Toggle directory expansion
+                toggleDirectory(path);
+            }
+        });
+
+        // Double-click on directory to navigate
+        document.addEventListener('dblclick', (e) => {
+            const treeItem = e.target.closest('.tree-item');
+            if (treeItem && treeItem.classList.contains('dir')) {
+                const path = treeItem.dataset.path;
+                processCommand(`cd ${path}`);
+            }
+        });
+
+        // Click on lesson items to execute the command
+        lessonList.addEventListener('click', (e) => {
+            const lessonItem = e.target.closest('.lesson-item');
+            if (!lessonItem) return;
+
+            const lessonIndex = parseInt(lessonItem.dataset.lesson, 10);
+            const lesson = lessons[lessonIndex];
+
+            // Only execute if the lesson is not completed
+            if (!completedLessons.has(lessonIndex) && lesson) {
+                // Get the hint command (first command if there are multiple)
+                let command = lesson.hint;
+
+                // If the hint contains multiple steps (comma separated), just take the last one
+                // as it's usually the actual command to run
+                if (command.includes(', then ')) {
+                    command = command.split(', then ').pop().trim();
+                } else if (command.includes(', ')) {
+                    command = command.split(', ').pop().trim();
+                }
+
+                // Show the command in the input field briefly, then execute
+                terminalInput.value = command;
+                terminalInput.focus();
+
+                // Execute after a brief moment so user can see what's happening
+                setTimeout(() => {
+                    processCommand(command);
+                    terminalInput.value = '';
+                }, 150);
+            }
+        });
+
+        // Focus terminal on click
+        terminalBody.addEventListener('click', () => {
+            terminalInput.focus();
+        });
+
+        // ============================================
+        // Tool Tooltip (Backpack)
+        // ============================================
+
+        const toolTooltip = document.getElementById('tool-tooltip');
+        const tooltipCmd = document.getElementById('tooltip-cmd');
+        const tooltipLoc = document.getElementById('tooltip-loc');
+        const tooltipDesc = document.getElementById('tooltip-desc');
+        const backpackTools = document.getElementById('backpack-tools');
+        let toolTooltipTimeout = null;
+
+        function showToolTooltip(toolItem, x, y) {
+            const cmd = toolItem.dataset.cmd;
+            const loc = toolItem.dataset.loc;
+            const desc = toolItem.dataset.desc;
+
+            tooltipCmd.textContent = cmd;
+            tooltipLoc.textContent = loc;
+            tooltipDesc.textContent = desc;
+
+            // Position tooltip
+            const padding = 10;
+            let left = x + padding;
+            let top = y + padding;
+
+            // Adjust if it would go off screen
+            if (left + 280 > window.innerWidth) {
+                left = x - 280 - padding;
+            }
+            if (top + 120 > window.innerHeight) {
+                top = y - 120 - padding;
+            }
+
+            toolTooltip.style.left = `${left}px`;
+            toolTooltip.style.top = `${top}px`;
+            toolTooltip.classList.add('visible');
+        }
+
+        function hideToolTooltip() {
+            toolTooltip.classList.remove('visible');
+        }
+
+        backpackTools.addEventListener('mouseover', (e) => {
+            const toolItem = e.target.closest('.tool-item');
+            if (toolItem) {
+                clearTimeout(toolTooltipTimeout);
+                const rect = toolItem.getBoundingClientRect();
+                toolTooltipTimeout = setTimeout(() => {
+                    showToolTooltip(toolItem, rect.right, rect.top);
+                }, 200);
+            }
+        });
+
+        backpackTools.addEventListener('mouseout', (e) => {
+            const toolItem = e.target.closest('.tool-item');
+            if (toolItem) {
+                clearTimeout(toolTooltipTimeout);
+                hideToolTooltip();
+            }
+        });
+
+        backpackTools.addEventListener('mouseleave', () => {
+            clearTimeout(toolTooltipTimeout);
+            hideToolTooltip();
+        });
+
+        // ============================================
+        // File Preview Tooltip
+        // ============================================
+
+        const filePreviewTooltip = document.getElementById('file-preview-tooltip');
+        const previewFilename = document.getElementById('preview-filename');
+        const previewContent = document.getElementById('preview-content');
+        let tooltipTimeout = null;
+
+        function showFilePreview(filePath, x, y) {
+            const node = fs.getNode(filePath);
+            if (!node || node.type !== 'file') return;
+
+            const filename = filePath.split('/').pop();
+            previewFilename.textContent = filename;
+
+            if (node.content && node.content.trim()) {
+                previewContent.textContent = node.content;
+                previewContent.classList.remove('empty');
+            } else {
+                previewContent.textContent = '(empty file)';
+                previewContent.classList.add('empty');
+            }
+
+            // Position tooltip near the mouse but keep it on screen
+            const tooltipRect = filePreviewTooltip.getBoundingClientRect();
+            const padding = 10;
+
+            let left = x + padding;
+            let top = y + padding;
+
+            // Adjust if it would go off the right edge
+            if (left + 280 > window.innerWidth) {
+                left = x - 280 - padding;
+            }
+
+            // Adjust if it would go off the bottom edge
+            if (top + 200 > window.innerHeight) {
+                top = y - 200 - padding;
+            }
+
+            filePreviewTooltip.style.left = `${left}px`;
+            filePreviewTooltip.style.top = `${top}px`;
+            filePreviewTooltip.classList.add('visible');
+        }
+
+        function hideFilePreview() {
+            filePreviewTooltip.classList.remove('visible');
+        }
+
+        // File tree hover events
+        fileTree.addEventListener('mouseover', (e) => {
+            const treeItem = e.target.closest('.tree-item.file');
+            if (treeItem) {
+                clearTimeout(tooltipTimeout);
+                const path = treeItem.dataset.path;
+                const rect = treeItem.getBoundingClientRect();
+                tooltipTimeout = setTimeout(() => {
+                    showFilePreview(path, rect.left, rect.bottom);
+                }, 300); // Small delay before showing
+            }
+        });
+
+        fileTree.addEventListener('mouseout', (e) => {
+            const treeItem = e.target.closest('.tree-item.file');
+            if (treeItem) {
+                clearTimeout(tooltipTimeout);
+                hideFilePreview();
+            }
+        });
+
+        // Hide tooltip when mouse leaves the file tree entirely
+        fileTree.addEventListener('mouseleave', () => {
+            clearTimeout(tooltipTimeout);
+            hideFilePreview();
+        });
+
+        // ============================================
+        // Initialize
+        // ============================================
+
+        function init() {
+            renderLessons();
+            renderTutorial();
+            updateFileTree();
+            updatePrompt();
+            renderTrails();
+            renderDirMarkers();
+            moveHiker(false);
+            terminalInput.focus();
+        }
+
+        init();
+    </script>
+</body>
+</html>

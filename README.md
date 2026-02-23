@@ -2,6 +2,7 @@ This is a repo of different single web page visualizations of topics that I cove
 
 - [git-workflow-simulator.html](https://markm208.github.io/vibeCodingInClassTools/git-workflow-simulator.html)
 - [git-setup-simulator.html](https://markm208.github.io/vibeCodingInClassTools/git-setup-simulator.html)
+- [cli-hiker.html](https://markm208.github.io/vibeCodingInClassTools/cli-hiker.html)
 - [cd-pipeline-simulator.html](https://markm208.github.io/vibeCodingInClassTools/cd-pipeline-simulator.html)
 - [diffusion_diagram.html](https://markm208.github.io/vibeCodingInClassTools/diffusion_diagram.html)
 - [kmeansclustering.html](https://markm208.github.io/vibeCodingInClassTools/kmeansclustering.html)
