@@ -1801,18 +1801,233 @@ int main() {
                     ]
                 },
                 explanation: "First child exits immediately. Parent does 2 more forks. C2 does one more fork. Total: 5 processes."
+            },
+            // Category 21: Variable state controlling fork behavior
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    int x = 1;
+    fork();
+    x++;
+    fork();
+    x++;
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2', createdAtLine: 7},
+                        {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3', createdAtLine: 7}
+                    ]
+                },
+                explanation: "Variable x is incremented but doesn't control forking. Two sequential forks create 4 processes. Each process ends with x=3."
+            },
+            {
+                code: `#include <unistd.h>
+#include <iostream>
+using namespace std;
+
+int main() {
+    int x = 1;
+    if (fork() == 0) {
+        x++;
+    }
+    if (x % 2 == 0) {
+        fork();
+        x++;
+    }
+    cout << x << endl;
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 70, label: 'C1', createdAtLine: 7},
+                        {parent: 'C1', id: 'C2', x: 100, y: 110, label: 'C2', createdAtLine: 11}
+                    ]
+                },
+                explanation: "P has x=1 (odd), C1 increments to x=2 (even). Only C1's x%2==0 is true, so only C1 forks. P prints 1, C1 and C2 print 3."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    for (int i = 1; i < 3; i++) {
+        if (i % 2 == 0) {
+            fork();
+        }
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 90, label: 'C', createdAtLine: 6}
+                    ]
+                },
+                explanation: "Loop runs with i=1,2. Fork only when i%2==0 (i.e., i=2). Single fork at i=2 creates one child. Total: 2 processes."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    int x = 0;
+    if (fork() == 0) {
+        x = 1;
+    }
+    if (x == 0) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2', createdAtLine: 9}
+                    ]
+                },
+                explanation: "P creates C1, C1 sets x=1. Second fork: only P (x==0) forks, creating C2. C1 (x==1) skips it. Total: 3 processes."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    int x = 1;
+    if (fork() == 0) {
+        x = 0;
+    }
+    fork();
+    if (x == 1) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 45, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 100, y: 45, label: 'C2', createdAtLine: 8},
+                        {parent: 'P', id: 'C3', x: 160, y: 45, label: 'C3', createdAtLine: 10},
+                        {parent: 'C1', id: 'C4', x: 40, y: 85, label: 'C4', createdAtLine: 8},
+                        {parent: 'C2', id: 'C5', x: 100, y: 85, label: 'C5', createdAtLine: 10}
+                    ]
+                },
+                explanation: "Fork 1: C1 sets x=0. Fork 2: all 4 processes fork. Fork 3: only x==1 processes (P and C2) fork. Total: 6 processes."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    int x = 0;
+    if (fork() == 0) x = 1;
+    if (fork() == 0) x = 2;
+    if (x < 2) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 45, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 100, y: 45, label: 'C2', createdAtLine: 6},
+                        {parent: 'P', id: 'C4', x: 160, y: 45, label: 'C4', createdAtLine: 8},
+                        {parent: 'C1', id: 'C3', x: 25, y: 85, label: 'C3', createdAtLine: 6},
+                        {parent: 'C1', id: 'C5', x: 55, y: 85, label: 'C5', createdAtLine: 8}
+                    ]
+                },
+                explanation: "Fork 1: C1 gets x=1. Fork 2: C2,C3 get x=2. Fork 3 (x<2): P(x=0) and C1(x=1) fork. C2,C3 have x=2, skip. Total: 6."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    int isChild = 0;
+    if (fork() == 0) {
+        isChild = 1;
+    }
+    fork();
+    if (isChild) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 45, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 160, y: 45, label: 'C2', createdAtLine: 8},
+                        {parent: 'C1', id: 'C3', x: 25, y: 80, label: 'C3', createdAtLine: 8},
+                        {parent: 'C1', id: 'C4', x: 55, y: 80, label: 'C4', createdAtLine: 10},
+                        {parent: 'C3', id: 'C5', x: 25, y: 115, label: 'C5', createdAtLine: 10}
+                    ]
+                },
+                explanation: "C1 sets isChild=1. Fork 2: all fork. Fork 3: only isChild processes (C1,C3) fork. P and C2 have isChild=0. Total: 6."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    int sum = 0;
+    sum += fork();
+    sum += fork();
+    if (sum == 0) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 45, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 160, y: 45, label: 'C2', createdAtLine: 6},
+                        {parent: 'C1', id: 'C3', x: 25, y: 80, label: 'C3', createdAtLine: 6},
+                        {parent: 'C1', id: 'C4', x: 55, y: 80, label: 'C4', createdAtLine: 8},
+                        {parent: 'C3', id: 'C5', x: 25, y: 115, label: 'C5', createdAtLine: 8}
+                    ]
+                },
+                explanation: "Children get 0 from fork(), parents get positive PIDs. Only C1 and C3 have sum==0. Fork 3: C1->C4, C3->C5. Total: 6."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    int depth = 0;
+    if (fork() == 0) depth++;
+    if (fork() == 0) depth++;
+    if (depth < 2) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 35, y: 40, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 100, y: 40, label: 'C2', createdAtLine: 6},
+                        {parent: 'P', id: 'C4', x: 165, y: 40, label: 'C4', createdAtLine: 8},
+                        {parent: 'C1', id: 'C3', x: 20, y: 75, label: 'C3', createdAtLine: 6},
+                        {parent: 'C1', id: 'C5', x: 50, y: 75, label: 'C5', createdAtLine: 8},
+                        {parent: 'C2', id: 'C6', x: 100, y: 75, label: 'C6', createdAtLine: 8}
+                    ]
+                },
+                explanation: "Each child increments depth. After 2 forks: P=0, C1=1, C2=1, C3=2. Fork 3 (depth<2): P,C1,C2 fork. C3 skips. Total: 7."
             }
         ];
 
         // Generate distractor trees based on common misconceptions
-        function generateDistractorTrees(correctTree) {
+        // Uses trees from other questions for more realistic distractors
+        function generateDistractorTrees(correctTree, currentQuestionIndex) {
             const distractors = [];
             const totalNodes = 1 + correctTree.children.length;
 
             // Helper to compute tree structure signature (for duplicate detection)
             function getTreeSignature(tree) {
                 const childCount = tree.children.length;
-                // Count how many children each node has
+                // Build adjacency representation
                 const parentCounts = {};
                 parentCounts['P'] = 0;
                 tree.children.forEach(c => {
@@ -1821,7 +2036,7 @@ int main() {
                 tree.children.forEach(c => {
                     parentCounts[c.parent] = (parentCounts[c.parent] || 0) + 1;
                 });
-                // Create signature: total nodes + parent structure
+                // Create signature: total nodes + sorted parent-child counts
                 const parentSignature = Object.entries(parentCounts)
                     .filter(([k, v]) => v > 0)
                     .sort((a, b) => b[1] - a[1])
@@ -1830,180 +2045,269 @@ int main() {
                 return `${childCount + 1}:${parentSignature}`;
             }
 
+            // Helper to compute depth structure for better differentiation
+            function getDepthSignature(tree) {
+                if (tree.children.length === 0) return '1';
+                const depths = {'P': 0};
+                let changed = true;
+                while (changed) {
+                    changed = false;
+                    tree.children.forEach(c => {
+                        if (depths[c.parent] !== undefined && depths[c.id] === undefined) {
+                            depths[c.id] = depths[c.parent] + 1;
+                            changed = true;
+                        }
+                    });
+                }
+                const depthCounts = {};
+                Object.values(depths).forEach(d => {
+                    depthCounts[d] = (depthCounts[d] || 0) + 1;
+                });
+                return Object.entries(depthCounts).sort((a,b) => a[0]-b[0]).map(([d,c]) => `${d}:${c}`).join('|');
+            }
+
             const correctSignature = getTreeSignature(correctTree);
+            const correctDepthSig = getDepthSignature(correctTree);
 
             // Helper to check if distractor is different from correct
-            function isDifferent(distractor) {
+            function isDifferentFromCorrect(distractor) {
                 return getTreeSignature(distractor) !== correctSignature;
             }
 
-            // Distractor 1: Different number of processes (usually ±1 or ×2)
-            if (totalNodes === 2) {
-                // Single fork - show 1 process (no fork), 3 processes, or 4 processes
-                const candidates = [
-                    // 1 process (no fork)
-                    {
-                        nodes: [{id: 'P', x: 100, y: 60, label: 'P', isParent: true}],
-                        children: []
-                    },
-                    // 3 processes flat
-                    {
-                        nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
-                        children: [
-                            {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1'},
-                            {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2'}
-                        ]
-                    },
-                    // 4 processes
-                    {
-                        nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
-                        children: [
-                            {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1'},
-                            {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2'},
-                            {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3'}
-                        ]
+            // Helper to check if two trees are duplicates
+            function areDuplicates(tree1, tree2) {
+                return getTreeSignature(tree1) === getTreeSignature(tree2) &&
+                       getDepthSignature(tree1) === getDepthSignature(tree2);
+            }
+
+            // Normalize a tree's coordinates using the same layout as display
+            function normalizeTree(tree) {
+                return layoutTree(tree);
+            }
+
+            // Collect trees from other questions as potential distractors
+            const otherTrees = [];
+            questionBank.forEach((q, idx) => {
+                if (idx !== currentQuestionIndex) {
+                    otherTrees.push(normalizeTree(q.correctTree));
+                }
+            });
+
+            // Shuffle the other trees for randomness
+            for (let i = otherTrees.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [otherTrees[i], otherTrees[j]] = [otherTrees[j], otherTrees[i]];
+            }
+
+            // Library of hand-crafted interesting tree structures
+            const treeLibrary = [
+                // 2 processes
+                { nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 100, y: 90, label: 'C'}] },
+                // 3 processes - flat
+                { nodes: [{id: 'P', x: 100, y: 25, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 60, y: 80, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 140, y: 80, label: 'C2'}] },
+                // 3 processes - chain
+                { nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 100, y: 60, label: 'C1'},
+                             {parent: 'C1', id: 'C2', x: 100, y: 100, label: 'C2'}] },
+                // 4 processes - standard fork tree
+                { nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 50, y: 55, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 150, y: 55, label: 'C2'},
+                             {parent: 'C1', id: 'C3', x: 50, y: 95, label: 'C3'}] },
+                // 4 processes - flat
+                { nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 40, y: 60, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 100, y: 60, label: 'C2'},
+                             {parent: 'P', id: 'C3', x: 160, y: 60, label: 'C3'}] },
+                // 4 processes - chain
+                { nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 100, y: 40, label: 'C1'},
+                             {parent: 'C1', id: 'C2', x: 100, y: 70, label: 'C2'},
+                             {parent: 'C2', id: 'C3', x: 100, y: 100, label: 'C3'}] },
+                // 4 processes - Y shape (P->C1->C2,C3)
+                { nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 100, y: 50, label: 'C1'},
+                             {parent: 'C1', id: 'C2', x: 60, y: 90, label: 'C2'},
+                             {parent: 'C1', id: 'C3', x: 140, y: 90, label: 'C3'}] },
+                // 5 processes - P->C1,C2; C1->C3,C4
+                { nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 50, y: 45, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 150, y: 45, label: 'C2'},
+                             {parent: 'C1', id: 'C3', x: 30, y: 85, label: 'C3'},
+                             {parent: 'C1', id: 'C4', x: 70, y: 85, label: 'C4'}] },
+                // 5 processes - P->C1,C2; C1->C3; C2->C4
+                { nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 50, y: 45, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 150, y: 45, label: 'C2'},
+                             {parent: 'C1', id: 'C3', x: 50, y: 85, label: 'C3'},
+                             {parent: 'C2', id: 'C4', x: 150, y: 85, label: 'C4'}] },
+                // 5 processes - flat
+                { nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 30, y: 60, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 70, y: 60, label: 'C2'},
+                             {parent: 'P', id: 'C3', x: 130, y: 60, label: 'C3'},
+                             {parent: 'P', id: 'C4', x: 170, y: 60, label: 'C4'}] },
+                // 5 processes - chain with branch
+                { nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 100, y: 40, label: 'C1'},
+                             {parent: 'C1', id: 'C2', x: 60, y: 75, label: 'C2'},
+                             {parent: 'C1', id: 'C3', x: 140, y: 75, label: 'C3'},
+                             {parent: 'C2', id: 'C4', x: 60, y: 105, label: 'C4'}] },
+                // 6 processes - balanced
+                { nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 50, y: 40, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 150, y: 40, label: 'C2'},
+                             {parent: 'C1', id: 'C3', x: 30, y: 75, label: 'C3'},
+                             {parent: 'C1', id: 'C4', x: 70, y: 75, label: 'C4'},
+                             {parent: 'C2', id: 'C5', x: 150, y: 75, label: 'C5'}] },
+                // 6 processes - deep chain with branches
+                { nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 60, y: 40, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 140, y: 40, label: 'C2'},
+                             {parent: 'C1', id: 'C3', x: 60, y: 70, label: 'C3'},
+                             {parent: 'C3', id: 'C4', x: 40, y: 100, label: 'C4'},
+                             {parent: 'C3', id: 'C5', x: 80, y: 100, label: 'C5'}] },
+                // 6 processes - P->C1,C2,C3; C1->C4,C5
+                { nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 40, y: 40, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 100, y: 40, label: 'C2'},
+                             {parent: 'P', id: 'C3', x: 160, y: 40, label: 'C3'},
+                             {parent: 'C1', id: 'C4', x: 25, y: 80, label: 'C4'},
+                             {parent: 'C1', id: 'C5', x: 55, y: 80, label: 'C5'}] },
+                // 7 processes - complex
+                { nodes: [{id: 'P', x: 100, y: 8, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 45, y: 35, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 100, y: 35, label: 'C2'},
+                             {parent: 'P', id: 'C3', x: 155, y: 35, label: 'C3'},
+                             {parent: 'C1', id: 'C4', x: 30, y: 68, label: 'C4'},
+                             {parent: 'C1', id: 'C5', x: 60, y: 68, label: 'C5'},
+                             {parent: 'C2', id: 'C6', x: 100, y: 68, label: 'C6'}] },
+                // 8 processes - 3 fork tree
+                { nodes: [{id: 'P', x: 100, y: 5, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 40, y: 30, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 100, y: 30, label: 'C2'},
+                             {parent: 'P', id: 'C3', x: 160, y: 30, label: 'C3'},
+                             {parent: 'C1', id: 'C4', x: 25, y: 58, label: 'C4'},
+                             {parent: 'C1', id: 'C5', x: 55, y: 58, label: 'C5'},
+                             {parent: 'C2', id: 'C6', x: 100, y: 58, label: 'C6'},
+                             {parent: 'C4', id: 'C7', x: 25, y: 88, label: 'C7'}] },
+                // 8 processes - wide
+                { nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                  children: [{parent: 'P', id: 'C1', x: 30, y: 40, label: 'C1'},
+                             {parent: 'P', id: 'C2', x: 60, y: 40, label: 'C2'},
+                             {parent: 'P', id: 'C3', x: 100, y: 40, label: 'C3'},
+                             {parent: 'P', id: 'C4', x: 140, y: 40, label: 'C4'},
+                             {parent: 'P', id: 'C5', x: 170, y: 40, label: 'C5'},
+                             {parent: 'C1', id: 'C6', x: 30, y: 75, label: 'C6'},
+                             {parent: 'C2', id: 'C7', x: 60, y: 75, label: 'C7'}] },
+            ];
+
+            // Shuffle library for randomness
+            for (let i = treeLibrary.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [treeLibrary[i], treeLibrary[j]] = [treeLibrary[j], treeLibrary[i]];
+            }
+
+            // Combine sources: other question trees first, then library
+            const allCandidates = [...otherTrees, ...treeLibrary];
+
+            // Filter and add unique distractors
+            const usedSignatures = new Set([correctSignature + '|' + correctDepthSig]);
+
+            for (const candidate of allCandidates) {
+                if (distractors.length >= 3) break;
+
+                const sig = getTreeSignature(candidate);
+                const depthSig = getDepthSignature(candidate);
+                const fullSig = sig + '|' + depthSig;
+
+                // Skip if same as correct or already used
+                if (usedSignatures.has(fullSig)) continue;
+
+                // Skip if matches correct structure
+                if (!isDifferentFromCorrect(candidate)) continue;
+
+                usedSignatures.add(fullSig);
+                distractors.push(candidate);
+            }
+
+            // If we still need more distractors, generate some programmatically
+            if (distractors.length < 3) {
+                const extraCandidates = [];
+
+                // Generate trees with ±1-2 process counts
+                for (let offset = -2; offset <= 2; offset++) {
+                    if (offset === 0) continue;
+                    const targetCount = totalNodes + offset;
+                    if (targetCount < 1 || targetCount > 12) continue;
+
+                    // Generate a few different structures for this count
+                    if (targetCount === 1) {
+                        extraCandidates.push({
+                            nodes: [{id: 'P', x: 100, y: 60, label: 'P', isParent: true}],
+                            children: []
+                        });
+                    } else {
+                        // Mixed structure: some flat, some branching
+                        const children = [];
+                        let nodeId = 1;
+                        const numFromP = Math.min(targetCount - 1, Math.floor(Math.random() * 3) + 1);
+
+                        for (let i = 0; i < numFromP && nodeId < targetCount; i++) {
+                            children.push({
+                                parent: 'P',
+                                id: `C${nodeId}`,
+                                x: 40 + i * 60,
+                                y: 45,
+                                label: `C${nodeId}`
+                            });
+                            nodeId++;
+                        }
+
+                        // Add children to existing nodes
+                        let parentIdx = 0;
+                        while (nodeId < targetCount && parentIdx < children.length) {
+                            const parent = children[parentIdx];
+                            children.push({
+                                parent: parent.id,
+                                id: `C${nodeId}`,
+                                x: parent.x + (Math.random() > 0.5 ? 20 : -20),
+                                y: parent.y + 35,
+                                label: `C${nodeId}`
+                            });
+                            nodeId++;
+                            if (Math.random() > 0.5) parentIdx++;
+                        }
+
+                        extraCandidates.push({
+                            nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                            children: children
+                        });
                     }
-                ];
-                candidates.filter(isDifferent).forEach(c => distractors.push(c));
-            } else if (totalNodes === 3) {
-                // 3 processes - generate candidates and filter duplicates
-                const candidates = [
-                    // Flat: P -> C1, C2
-                    {
-                        nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
-                        children: [
-                            {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1'},
-                            {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2'}
-                        ]
-                    },
-                    // Chain: P -> C1 -> C2
-                    {
-                        nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
-                        children: [
-                            {parent: 'P', id: 'C1', x: 100, y: 70, label: 'C1'},
-                            {parent: 'C1', id: 'C2', x: 100, y: 110, label: 'C2'}
-                        ]
-                    },
-                    // 2 processes (one fewer)
-                    {
-                        nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
-                        children: [{parent: 'P', id: 'C1', x: 100, y: 90, label: 'C'}]
-                    },
-                    // 4 processes (one more)
-                    {
-                        nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
-                        children: [
-                            {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1'},
-                            {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2'},
-                            {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3'}
-                        ]
-                    }
-                ];
-                candidates.filter(isDifferent).forEach(c => distractors.push(c));
-            } else if (totalNodes === 4) {
-                // 4 processes - generate candidates and filter duplicates
-                const candidates = [
-                    // Standard 2-fork tree: P -> C1, C2; C1 -> C3
-                    {
-                        nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
-                        children: [
-                            {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1'},
-                            {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2'},
-                            {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3'}
-                        ]
-                    },
-                    // Flat: P -> C1, C2, C3
-                    {
-                        nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
-                        children: [
-                            {parent: 'P', id: 'C1', x: 50, y: 55, label: 'C1'},
-                            {parent: 'P', id: 'C2', x: 100, y: 55, label: 'C2'},
-                            {parent: 'P', id: 'C3', x: 150, y: 55, label: 'C3'}
-                        ]
-                    },
-                    // Chain: P -> C1 -> C2 -> C3
-                    {
-                        nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
-                        children: [
-                            {parent: 'P', id: 'C1', x: 100, y: 45, label: 'C1'},
-                            {parent: 'C1', id: 'C2', x: 100, y: 75, label: 'C2'},
-                            {parent: 'C2', id: 'C3', x: 100, y: 105, label: 'C3'}
-                        ]
-                    },
-                    // 3 processes (one fewer)
-                    {
-                        nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
-                        children: [
-                            {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1'},
-                            {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2'}
-                        ]
-                    },
-                    // 5 processes (one more)
-                    {
-                        nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
-                        children: [
-                            {parent: 'P', id: 'C1', x: 40, y: 50, label: 'C1'},
-                            {parent: 'P', id: 'C2', x: 100, y: 50, label: 'C2'},
-                            {parent: 'P', id: 'C3', x: 160, y: 50, label: 'C3'},
-                            {parent: 'C1', id: 'C4', x: 40, y: 90, label: 'C4'}
-                        ]
-                    }
-                ];
-                candidates.filter(isDifferent).forEach(c => distractors.push(c));
-            } else {
-                // Generate reasonable distractors for other cases
-                const candidates = [];
+                }
 
-                // Flat structure with same count
-                candidates.push({
-                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
-                    children: Array.from({length: totalNodes - 1}, (_, i) => ({
-                        parent: 'P',
-                        id: `C${i+1}`,
-                        x: 30 + (i * 140 / Math.max(1, totalNodes - 2)),
-                        y: 60,
-                        label: `C${i+1}`
-                    }))
-                });
+                // Shuffle and add
+                for (let i = extraCandidates.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [extraCandidates[i], extraCandidates[j]] = [extraCandidates[j], extraCandidates[i]];
+                }
 
-                // Chain structure with same count
-                candidates.push({
-                    nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
-                    children: Array.from({length: totalNodes - 1}, (_, i) => ({
-                        parent: i === 0 ? 'P' : `C${i}`,
-                        id: `C${i+1}`,
-                        x: 100,
-                        y: 30 + i * 25,
-                        label: `C${i+1}`
-                    }))
-                });
+                for (const candidate of extraCandidates) {
+                    if (distractors.length >= 3) break;
 
-                // One fewer (flat)
-                const fewerCount = Math.max(1, totalNodes - 2);
-                candidates.push({
-                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
-                    children: Array.from({length: fewerCount}, (_, i) => ({
-                        parent: 'P',
-                        id: `C${i+1}`,
-                        x: 50 + i * 50,
-                        y: 80,
-                        label: `C${i+1}`
-                    }))
-                });
+                    const sig = getTreeSignature(candidate);
+                    const depthSig = getDepthSignature(candidate);
+                    const fullSig = sig + '|' + depthSig;
 
-                // One more (flat)
-                candidates.push({
-                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
-                    children: Array.from({length: totalNodes}, (_, i) => ({
-                        parent: 'P',
-                        id: `C${i+1}`,
-                        x: 30 + i * 35,
-                        y: 55,
-                        label: `C${i+1}`
-                    }))
-                });
+                    if (usedSignatures.has(fullSig)) continue;
+                    if (!isDifferentFromCorrect(candidate)) continue;
 
-                candidates.filter(isDifferent).forEach(c => distractors.push(c));
+                    usedSignatures.add(fullSig);
+                    distractors.push(candidate);
+                }
             }
 
             return distractors.slice(0, 3);
@@ -2011,9 +2315,9 @@ int main() {
 
         // Syntax highlighting for code
         function highlightCode(code) {
-            const keywords = ['int', 'if', 'else', 'for', 'while', 'return', 'break', 'void'];
+            const keywords = ['int', 'if', 'else', 'for', 'while', 'return', 'break', 'void', 'using', 'namespace'];
             const types = ['pid_t'];
-            const functions = ['fork', 'printf', 'exit', 'main'];
+            const functions = ['fork', 'printf', 'exit', 'main', 'cout', 'endl'];
 
             // Split into lines first
             const lines = code.split('\n');
@@ -2061,18 +2365,115 @@ int main() {
             return highlightedLines.join('\n');
         }
 
+        // Layout tree with proper spreading: first child left, second child right
+        function layoutTree(tree) {
+            if (!tree || !tree.nodes || tree.nodes.length === 0) return tree;
+
+            const nodePositions = {};
+            const horizontalSpacing = 45;  // Space between siblings
+            const verticalSpacing = 40;    // Space between levels
+
+            // Build parent-to-children map, preserving order
+            const childrenOf = { 'P': [] };
+            tree.children.forEach(c => {
+                childrenOf[c.id] = [];
+            });
+            tree.children.forEach(c => {
+                if (childrenOf[c.parent]) {
+                    childrenOf[c.parent].push(c.id);
+                }
+            });
+
+            // Compute depth of each node
+            const depths = { 'P': 0 };
+            let changed = true;
+            while (changed) {
+                changed = false;
+                tree.children.forEach(c => {
+                    if (depths[c.parent] !== undefined && depths[c.id] === undefined) {
+                        depths[c.id] = depths[c.parent] + 1;
+                        changed = true;
+                    }
+                });
+            }
+
+            // Compute subtree width for each node (for proper spacing)
+            const subtreeWidth = {};
+            function computeWidth(nodeId) {
+                const children = childrenOf[nodeId] || [];
+                if (children.length === 0) {
+                    subtreeWidth[nodeId] = 1;
+                } else {
+                    let total = 0;
+                    children.forEach(childId => {
+                        computeWidth(childId);
+                        total += subtreeWidth[childId];
+                    });
+                    subtreeWidth[nodeId] = total;
+                }
+            }
+            computeWidth('P');
+
+            // Position nodes using subtree widths
+            function positionNode(nodeId, leftBound, rightBound) {
+                const depth = depths[nodeId];
+                const centerX = (leftBound + rightBound) / 2;
+                nodePositions[nodeId] = {
+                    x: centerX,
+                    y: 20 + depth * verticalSpacing
+                };
+
+                const children = childrenOf[nodeId] || [];
+                if (children.length > 0) {
+                    const totalWidth = children.reduce((sum, cid) => sum + subtreeWidth[cid], 0);
+                    const availableWidth = rightBound - leftBound;
+                    const scale = Math.min(1, availableWidth / (totalWidth * horizontalSpacing));
+
+                    let currentLeft = leftBound;
+                    children.forEach(childId => {
+                        const childWidth = subtreeWidth[childId] * horizontalSpacing * scale;
+                        positionNode(childId, currentLeft, currentLeft + childWidth);
+                        currentLeft += childWidth;
+                    });
+                }
+            }
+
+            // Calculate total width needed
+            const totalWidth = Math.max(200, subtreeWidth['P'] * horizontalSpacing + 40);
+            positionNode('P', 20, totalWidth - 20);
+
+            // Create new tree with computed positions
+            const layoutedTree = {
+                nodes: tree.nodes.map(n => ({
+                    ...n,
+                    x: nodePositions[n.id]?.x || n.x,
+                    y: nodePositions[n.id]?.y || n.y
+                })),
+                children: tree.children.map(c => ({
+                    ...c,
+                    x: nodePositions[c.id]?.x || c.x,
+                    y: nodePositions[c.id]?.y || c.y
+                }))
+            };
+
+            return layoutedTree;
+        }
+
         // Draw process tree SVG
         function drawProcessTree(tree, svgId) {
             const svg = document.getElementById(svgId);
             svg.innerHTML = '';
 
-            // Calculate bounds based on actual node positions
+            // Apply consistent layout
+            const layoutedTree = layoutTree(tree);
+
+            // Calculate bounds based on laid out positions
             let maxX = 100, maxY = 50;
-            tree.nodes.forEach(node => {
+            layoutedTree.nodes.forEach(node => {
                 maxX = Math.max(maxX, node.x + 20);
                 maxY = Math.max(maxY, node.y + 20);
             });
-            tree.children.forEach(child => {
+            layoutedTree.children.forEach(child => {
                 maxX = Math.max(maxX, child.x + 20);
                 maxY = Math.max(maxY, child.y + 20);
             });
@@ -2084,9 +2485,9 @@ int main() {
             svg.setAttribute('height', height);
 
             // Draw links first (behind nodes)
-            tree.children.forEach(child => {
-                const parentNode = tree.nodes.find(n => n.id === child.parent) ||
-                                   tree.children.find(c => c.id === child.parent);
+            layoutedTree.children.forEach(child => {
+                const parentNode = layoutedTree.nodes.find(n => n.id === child.parent) ||
+                                   layoutedTree.children.find(c => c.id === child.parent);
                 if (parentNode) {
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     line.setAttribute('x1', parentNode.x);
@@ -2099,7 +2500,7 @@ int main() {
             });
 
             // Draw parent node
-            tree.nodes.forEach(node => {
+            layoutedTree.nodes.forEach(node => {
                 const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 circle.setAttribute('cx', node.x);
                 circle.setAttribute('cy', node.y);
@@ -2116,8 +2517,8 @@ int main() {
             });
 
             // Draw child nodes
-            tree.children.forEach(child => {
-                const generation = getProcessGeneration(child.id, tree);
+            layoutedTree.children.forEach(child => {
+                const generation = getProcessGeneration(child.id, layoutedTree);
                 const genClass = `gen-${Math.min(generation, 4)}`; // Cap at gen-4
                 const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 circle.setAttribute('cx', child.x);
@@ -2134,7 +2535,7 @@ int main() {
                 svg.appendChild(text);
             });
 
-            return 1 + tree.children.length; // Return process count
+            return 1 + layoutedTree.children.length; // Return process count
         }
 
         // Game state
@@ -2235,7 +2636,7 @@ int main() {
             currentFlowData = question.flowData || null; // Store flow data for hover highlighting
 
             // Generate options (1 correct + 3 distractors)
-            const distractors = generateDistractorTrees(question.correctTree);
+            const distractors = generateDistractorTrees(question.correctTree, questionIdx);
             let options = [
                 { tree: question.correctTree, isCorrect: true },
                 ...distractors.map(d => ({ tree: d, isCorrect: false }))
@@ -2433,13 +2834,16 @@ int main() {
             const svg = document.getElementById(svgId);
             svg.innerHTML = '';
 
-            // Calculate bounds based on actual node positions
+            // Apply consistent layout
+            const layoutedTree = layoutTree(tree);
+
+            // Calculate bounds based on laid out positions
             let maxX = 100, maxY = 50;
-            tree.nodes.forEach(node => {
+            layoutedTree.nodes.forEach(node => {
                 maxX = Math.max(maxX, node.x + 20);
                 maxY = Math.max(maxY, node.y + 20);
             });
-            tree.children.forEach(child => {
+            layoutedTree.children.forEach(child => {
                 maxX = Math.max(maxX, child.x + 20);
                 maxY = Math.max(maxY, child.y + 20);
             });
@@ -2454,9 +2858,9 @@ int main() {
             const lines = [];
 
             // Draw links first (behind nodes)
-            tree.children.forEach(child => {
-                const parentNode = tree.nodes.find(n => n.id === child.parent) ||
-                                   tree.children.find(c => c.id === child.parent);
+            layoutedTree.children.forEach(child => {
+                const parentNode = layoutedTree.nodes.find(n => n.id === child.parent) ||
+                                   layoutedTree.children.find(c => c.id === child.parent);
                 if (parentNode) {
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     line.setAttribute('x1', parentNode.x);
@@ -2472,7 +2876,7 @@ int main() {
             });
 
             // Draw parent node with hover
-            tree.nodes.forEach(node => {
+            layoutedTree.nodes.forEach(node => {
                 const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 circle.setAttribute('cx', node.x);
                 circle.setAttribute('cy', node.y);
@@ -2492,12 +2896,12 @@ int main() {
                 svg.appendChild(text);
 
                 // Add hover listeners
-                addProcessHoverListeners(circle, node, tree, lines);
+                addProcessHoverListeners(circle, node, layoutedTree, lines);
             });
 
             // Draw child nodes with hover
-            tree.children.forEach(child => {
-                const generation = getProcessGeneration(child.id, tree);
+            layoutedTree.children.forEach(child => {
+                const generation = getProcessGeneration(child.id, layoutedTree);
                 const genClass = `gen-${Math.min(generation, 4)}`;
                 const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 circle.setAttribute('cx', child.x);
@@ -2518,7 +2922,7 @@ int main() {
                 svg.appendChild(text);
 
                 // Add hover listeners
-                addProcessHoverListeners(circle, child, tree, lines);
+                addProcessHoverListeners(circle, child, layoutedTree, lines);
             });
         }
 
@@ -2745,6 +3149,9 @@ int main() {
         function drawProcessTreeEnlarged(tree, svg) {
             svg.innerHTML = '';
 
+            // Apply consistent layout
+            const layoutedTree = layoutTree(tree);
+
             // Scale factor for enlargement
             const scaleX = 2.5;
             const scaleY = 2.7;
@@ -2752,11 +3159,11 @@ int main() {
 
             // Calculate bounds based on actual scaled node positions
             let maxX = 100 * scaleX, maxY = 50 * scaleY;
-            tree.nodes.forEach(node => {
+            layoutedTree.nodes.forEach(node => {
                 maxX = Math.max(maxX, node.x * scaleX + nodeRadius + 10);
                 maxY = Math.max(maxY, node.y * scaleY + nodeRadius + 10);
             });
-            tree.children.forEach(child => {
+            layoutedTree.children.forEach(child => {
                 maxX = Math.max(maxX, child.x * scaleX + nodeRadius + 10);
                 maxY = Math.max(maxY, child.y * scaleY + nodeRadius + 10);
             });
@@ -2768,9 +3175,9 @@ int main() {
             svg.setAttribute('height', height);
 
             // Draw links first (behind nodes)
-            tree.children.forEach(child => {
-                const parentNode = tree.nodes.find(n => n.id === child.parent) ||
-                                   tree.children.find(c => c.id === child.parent);
+            layoutedTree.children.forEach(child => {
+                const parentNode = layoutedTree.nodes.find(n => n.id === child.parent) ||
+                                   layoutedTree.children.find(c => c.id === child.parent);
                 if (parentNode) {
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     line.setAttribute('x1', parentNode.x * scaleX);
@@ -2783,7 +3190,7 @@ int main() {
             });
 
             // Draw parent node
-            tree.nodes.forEach(node => {
+            layoutedTree.nodes.forEach(node => {
                 const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 circle.setAttribute('cx', node.x * scaleX);
                 circle.setAttribute('cy', node.y * scaleY);
@@ -2800,8 +3207,8 @@ int main() {
             });
 
             // Draw child nodes
-            tree.children.forEach(child => {
-                const generation = getProcessGeneration(child.id, tree);
+            layoutedTree.children.forEach(child => {
+                const generation = getProcessGeneration(child.id, layoutedTree);
                 const genClass = `gen-${Math.min(generation, 4)}`;
                 const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 circle.setAttribute('cx', child.x * scaleX);
