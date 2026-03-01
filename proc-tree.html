@@ -1,0 +1,2858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>fork() Process Tree Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-panel: #161b22;
+            --bg-input: #0d1117;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-purple: #a371f7;
+            --accent-orange: #d29922;
+            --accent-red: #f85149;
+            --accent-pink: #db61a2;
+            --accent-cyan: #39c5cf;
+            --success-bg: rgba(63, 185, 80, 0.15);
+            --warning-bg: rgba(210, 153, 34, 0.15);
+            --error-bg: rgba(248, 81, 73, 0.15);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-panel);
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header h1::before {
+            content: '';
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
+            border-radius: 6px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        .stat-value.correct {
+            color: var(--accent-green);
+        }
+
+        .stat-value.incorrect {
+            color: var(--accent-red);
+        }
+
+        .help-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--accent-cyan);
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .help-btn:hover {
+            background: var(--accent-purple);
+            color: white;
+            border-color: var(--accent-purple);
+        }
+
+        .reset-btn {
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .reset-btn:hover {
+            background: var(--accent-red);
+            color: white;
+            border-color: var(--accent-red);
+        }
+
+        .progress-bar-container {
+            flex-basis: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding-top: 0.5rem;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-input);
+            border-radius: 3px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            flex: 1;
+        }
+
+        @media (max-width: 1000px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Code Panel */
+        .code-panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: var(--bg-input);
+            border-bottom: 1px solid var(--border);
+            gap: 0.5rem;
+        }
+
+        .panel-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .panel-title-heading {
+            font-size: 1.1rem;
+            color: var(--accent-cyan);
+        }
+
+        .code-container {
+            flex: 1;
+            padding: 1.5rem;
+            overflow: auto;
+        }
+
+        .code-block {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.35;
+            white-space: pre;
+            color: var(--text-primary);
+        }
+
+        .code-block .keyword {
+            color: var(--accent-pink);
+        }
+
+        .code-block .function {
+            color: var(--accent-blue);
+        }
+
+        .code-block .number {
+            color: var(--accent-orange);
+        }
+
+        .code-block .comment {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .code-block .string {
+            color: var(--accent-green);
+        }
+
+        .code-block .type {
+            color: var(--accent-cyan);
+        }
+
+        /* Question */
+        .question-text {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            background: rgba(88, 166, 255, 0.05);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        /* Diagrams Panel */
+        .diagrams-panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .diagrams-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .diagram-option {
+            background: var(--bg-input);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .diagram-option:hover:not(.disabled) {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(88, 166, 255, 0.15);
+        }
+
+        .diagram-option.selected {
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 0 3px rgba(163, 113, 247, 0.2);
+        }
+
+        .diagram-option.correct {
+            border-color: var(--accent-green);
+            background: var(--success-bg);
+        }
+
+        .diagram-option.incorrect {
+            border-color: var(--accent-red);
+            background: var(--error-bg);
+        }
+
+        .diagram-option.disabled {
+            cursor: default;
+            opacity: 0.7;
+        }
+
+        .diagram-option.disabled:not(.correct):not(.incorrect) {
+            opacity: 0.5;
+        }
+
+        .diagram-label {
+            padding: 0.5rem 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .diagram-svg-container {
+            flex: 1;
+            overflow: auto;
+            padding: 0.5rem;
+            min-height: 120px;
+            max-height: 180px;
+        }
+
+        .diagram-svg {
+            min-width: 200px;
+            min-height: 130px;
+            display: block;
+        }
+
+        /* Process node styling */
+        .process-node {
+            fill: var(--accent-purple);
+            stroke: var(--text-primary);
+            stroke-width: 2;
+        }
+
+        .process-node.parent {
+            fill: var(--accent-blue);
+        }
+
+        /* Generation-based colors for process nodes */
+        .process-node.gen-0 {
+            fill: #58a6ff; /* Blue - parent P */
+        }
+        .process-node.gen-1 {
+            fill: #a371f7; /* Purple - direct children */
+        }
+        .process-node.gen-2 {
+            fill: #db61a2; /* Pink - grandchildren */
+        }
+        .process-node.gen-3 {
+            fill: #d29922; /* Orange - great-grandchildren */
+        }
+        .process-node.gen-4 {
+            fill: #3fb950; /* Green - great-great-grandchildren */
+        }
+
+        .process-link {
+            stroke: var(--text-secondary);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .process-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            fill: var(--text-primary);
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            border-top: 1px solid var(--border);
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(163, 113, 247, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            border-color: var(--accent-blue);
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Feedback */
+        .feedback {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: none;
+        }
+
+        .feedback.visible {
+            display: block;
+        }
+
+        .feedback.correct {
+            background: var(--success-bg);
+            color: var(--accent-green);
+        }
+
+        .feedback.incorrect {
+            background: var(--error-bg);
+            color: var(--accent-red);
+        }
+
+        .feedback-text {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .feedback-explanation {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Tooltip for process counts */
+        .process-count {
+            position: absolute;
+            bottom: 0.5rem;
+            right: 0.5rem;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.25rem 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Instructions panel */
+        .instructions {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .instructions h2 {
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+            color: var(--accent-cyan);
+        }
+
+        .instructions p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+
+        .instructions ul {
+            margin-top: 0.75rem;
+            margin-left: 1.5rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        .instructions code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-input);
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            color: var(--accent-orange);
+            font-size: 0.85rem;
+        }
+
+        /* Hide instructions after first question answered */
+        .instructions.hidden {
+            display: none;
+        }
+
+        /* Animation for correct answer */
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(63, 185, 80, 0); }
+        }
+
+        .diagram-option.correct {
+            animation: pulse-green 0.5s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .diagram-option.incorrect {
+            animation: shake 0.3s ease;
+        }
+
+        /* Expand button */
+        .expand-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            width: 28px;
+            height: 28px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .expand-btn:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .expand-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Modal overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 2rem;
+        }
+
+        .modal-overlay.visible {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-input);
+        }
+
+        .modal-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: var(--accent-red);
+            border-color: var(--accent-red);
+            color: white;
+        }
+
+        .modal-body {
+            flex: 1;
+            padding: 2rem;
+            overflow: auto;
+            min-height: 400px;
+            max-height: 70vh;
+        }
+
+        .modal-svg {
+            min-width: 400px;
+            min-height: 300px;
+            display: block;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-process-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .modal-process-count span {
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        /* Larger nodes in modal */
+        .modal-svg .process-node {
+            stroke-width: 3;
+        }
+
+        .modal-svg .process-link {
+            stroke-width: 3;
+        }
+
+        .modal-svg .process-label {
+            font-size: 14px;
+        }
+
+        /* Code line highlighting for hover */
+        .code-line {
+            display: flex;
+            padding: 0 0.25rem;
+            margin: 0 -0.25rem;
+            border-radius: 3px;
+            transition: background-color 0.3s ease;
+        }
+
+        .line-number {
+            display: inline-block;
+            width: 2.5em;
+            text-align: right;
+            padding-right: 1em;
+            color: var(--text-muted);
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .line-content {
+            flex: 1;
+        }
+
+        .code-block .preprocessor {
+            color: var(--accent-purple);
+        }
+
+        .code-block .include-file {
+            color: var(--accent-green);
+        }
+
+        .code-line.dimmed {
+            opacity: 0.25;
+        }
+
+        .code-line.dimmed.executed {
+            opacity: 1;
+        }
+
+        .code-line.fork-highlight {
+            background-color: rgba(163, 113, 247, 0.3);
+            box-shadow: inset 3px 0 0 var(--accent-purple);
+            opacity: 1;
+        }
+
+        .code-line.flow-highlight {
+            background-color: rgba(63, 185, 80, 0.15);
+            box-shadow: inset 3px 0 0 var(--accent-green);
+            opacity: 1;
+        }
+
+        /* Hoverable process nodes */
+        .process-node.hoverable {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .process-node.hoverable:hover {
+            filter: brightness(1.3);
+        }
+
+        .process-node.hovered {
+            stroke: var(--accent-orange);
+            stroke-width: 4;
+            filter: brightness(1.2);
+        }
+
+        .process-link.highlighted-path {
+            stroke: var(--accent-orange);
+            stroke-width: 3;
+        }
+
+        /* Process tooltip */
+        .process-tooltip {
+            position: fixed;
+            background: var(--bg-panel);
+            border: 1px solid var(--accent-purple);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            z-index: 1000;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(5px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            max-width: 280px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .process-tooltip.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .process-tooltip-title {
+            font-weight: 600;
+            color: var(--accent-purple);
+            margin-bottom: 0.25rem;
+        }
+
+        .process-tooltip-desc {
+            color: var(--text-secondary);
+            line-height: 1.4;
+            font-size: 0.75rem;
+        }
+
+        /* Hover hint in correct answer */
+        .hover-hint {
+            position: absolute;
+            bottom: 0.5rem;
+            left: 0.5rem;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .diagram-option.correct .hover-hint {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1>fork() Process Tree Visualizer</h1>
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-label">Question:</span>
+                    <span class="stat-value" id="question-num">1</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Example:</span>
+                    <span class="stat-value" id="example-id" title="Use ?example=N in URL to load this example">-</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total:</span>
+                    <span class="stat-value" id="total-examples">-</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Correct:</span>
+                    <span class="stat-value correct" id="correct-count">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Incorrect:</span>
+                    <span class="stat-value incorrect" id="incorrect-count">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Streak:</span>
+                    <span class="stat-value" id="streak-count">0</span>
+                </div>
+                <button class="reset-btn" onclick="resetStats()" title="Reset all statistics">Reset Stats</button>
+            </div>
+            <button class="help-btn" id="help-btn" onclick="toggleInstructions()" title="Show/hide instructions">?</button>
+            <div class="progress-bar-container">
+                <span class="progress-text" id="progress-text">0 of 41 examples seen</span>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </header>
+
+        <div class="instructions" id="instructions">
+            <h2>How It Works</h2>
+            <p>Look at the C code on the left and determine what process tree it creates when executed. Select the correct diagram on the right.</p>
+            <ul>
+                <li><code>fork()</code> creates a new child process - a copy of the parent</li>
+                <li>The parent receives the child's PID (positive number), the child receives 0</li>
+                <li>Blue circles represent the original process, purple circles represent child processes</li>
+                <li>Lines connect parent processes to their children</li>
+            </ul>
+            <p><strong>After answering:</strong> Hover over any process in the correct answer to see how the tree evolved. The code will highlight in <span style="color: var(--accent-purple);">purple</span> where that process was created, and in <span style="color: var(--accent-green);">green</span> where its parent was created.</p>
+        </div>
+
+        <div class="main-content">
+            <div class="code-panel">
+                <div class="panel-header">
+                    <span class="panel-title">fork_example.c</span>
+                </div>
+                <div class="code-container">
+                    <pre class="code-block" id="code-display"></pre>
+                </div>
+                <div class="question-text">
+                    Which process tree does this code produce?
+                </div>
+            </div>
+
+            <div class="diagrams-panel">
+                <div class="panel-header">
+                    <span class="panel-title-heading">Select the correct process tree</span>
+                </div>
+                <div class="diagrams-grid" id="diagrams-grid">
+                    <!-- Diagrams will be inserted here -->
+                </div>
+                <div class="feedback" id="feedback">
+                    <div class="feedback-text" id="feedback-text"></div>
+                    <div class="feedback-explanation" id="feedback-explanation"></div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-secondary" id="skip-btn">Skip</button>
+                    <button class="btn btn-secondary" id="show-btn">Show Me</button>
+                    <button class="btn btn-primary" id="next-btn" disabled>Next Question</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expand Modal -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-title">Option A</span>
+                <button class="modal-close" id="modal-close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <svg class="modal-svg" id="modal-svg"></svg>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-process-count">
+                    Total processes: <span id="modal-process-count">0</span>
+                </div>
+                <button class="btn btn-secondary" id="modal-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Process Tooltip -->
+    <div class="process-tooltip" id="process-tooltip">
+        <div class="process-tooltip-title" id="tooltip-title">Process P</div>
+        <div class="process-tooltip-desc" id="tooltip-desc">Original parent process</div>
+    </div>
+
+    <script>
+        // Question bank with code snippets and their correct tree structures
+        const questionBank = [
+            // Category 1: Single fork
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [{parent: 'P', id: 'C1', x: 100, y: 90, label: 'C', createdAtLine: 4}]
+                },
+                explanation: "A single fork() creates exactly one child process. Both parent and child continue to the return statement."
+            },
+            // Category 2: Two sequential forks (creates 4 processes)
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork();
+    fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2', createdAtLine: 5},
+                        {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3', createdAtLine: 5}
+                    ]
+                },
+                explanation: "First fork(): P creates C1. Second fork(): Both P and C1 fork, creating C2 and C3. Total: 4 processes."
+            },
+            // Category 3: Three sequential forks (creates 8 processes)
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork();
+    fork();
+    fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 40, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 100, y: 40, label: 'C2', createdAtLine: 5},
+                        {parent: 'P', id: 'C3', x: 160, y: 40, label: 'C3', createdAtLine: 6},
+                        {parent: 'C1', id: 'C4', x: 25, y: 70, label: 'C4', createdAtLine: 5},
+                        {parent: 'C1', id: 'C5', x: 55, y: 70, label: 'C5', createdAtLine: 6},
+                        {parent: 'C2', id: 'C6', x: 100, y: 70, label: 'C6', createdAtLine: 6},
+                        {parent: 'C4', id: 'C7', x: 25, y: 100, label: 'C7', createdAtLine: 6}
+                    ]
+                },
+                explanation: "Three forks create 2^3 = 8 processes. Each fork doubles the process count."
+            },
+            // Category 4: Fork in parent only
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork() > 0) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2', createdAtLine: 5}
+                    ]
+                },
+                explanation: "First fork creates C1. Only the parent (fork() > 0) executes the second fork, creating C2. C1 skips the inner fork."
+            },
+            // Category 5: Fork in child only
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork() == 0) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 70, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 100, y: 110, label: 'C2', createdAtLine: 5}
+                    ]
+                },
+                explanation: "First fork creates C1. Only the child (fork() == 0) executes the second fork, creating grandchild C2."
+            },
+            // Category 6: Fork in both branches creates different structures
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork() == 0) {
+        fork();
+    } else {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2', createdAtLine: 7},
+                        {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3', createdAtLine: 5}
+                    ]
+                },
+                explanation: "Both branches fork once. Same as two sequential forks: 4 total processes."
+            },
+            // Category 7: No fork in one branch
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork() != 0) {
+        // Parent does nothing extra
+    } else {
+        fork();
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 50, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 60, y: 85, label: 'C2', createdAtLine: 7},
+                        {parent: 'C1', id: 'C3', x: 140, y: 85, label: 'C3', createdAtLine: 8},
+                        {parent: 'C2', id: 'C4', x: 60, y: 115, label: 'C4', createdAtLine: 8}
+                    ]
+                },
+                explanation: "Parent creates C1 and stops. C1 does two forks, creating a subtree of 4 processes under it."
+            },
+            // Category 8: Using exit() to prevent further forking
+            {
+                code: `#include <unistd.h>
+#include <stdlib.h>
+
+int main() {
+    fork();
+    if (fork() == 0) {
+        exit(0);
+    }
+    fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 45, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 100, y: 45, label: 'C2', createdAtLine: 6},
+                        {parent: 'P', id: 'C3', x: 160, y: 45, label: 'C3', createdAtLine: 9},
+                        {parent: 'C1', id: 'C4', x: 25, y: 80, label: 'C4', createdAtLine: 6},
+                        {parent: 'C1', id: 'C5', x: 55, y: 80, label: 'C5', createdAtLine: 9}
+                    ]
+                },
+                explanation: "First fork: P,C1. Second fork: P->C2, C1->C4. C2 and C4 exit(). Third fork: P->C3, C1->C5. Total: 6 processes."
+            },
+            // Category 9: Nested conditionals
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork() > 0) {
+        if (fork() > 0) {
+            fork();
+        }
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 55, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 100, y: 55, label: 'C2', createdAtLine: 5},
+                        {parent: 'P', id: 'C3', x: 150, y: 55, label: 'C3', createdAtLine: 6}
+                    ]
+                },
+                explanation: "All three forks happen in the parent only. The parent creates 3 children directly."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork() == 0) {
+        if (fork() == 0) {
+            fork();
+        }
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 45, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 100, y: 75, label: 'C2', createdAtLine: 5},
+                        {parent: 'C2', id: 'C3', x: 100, y: 105, label: 'C3', createdAtLine: 6}
+                    ]
+                },
+                explanation: "Each fork happens only in the child. Creates a chain: P -> C1 -> C2 -> C3."
+            },
+            // Category 10: Loop with break in child
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    for (int i = 0; i < 3; i++) {
+        if (fork() == 0) {
+            break;
+        }
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 100, y: 60, label: 'C2', createdAtLine: 5},
+                        {parent: 'P', id: 'C3', x: 150, y: 60, label: 'C3', createdAtLine: 5}
+                    ]
+                },
+                explanation: "Each child breaks out of the loop immediately. Only the parent continues looping, creating 3 direct children."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    for (int i = 0; i < 2; i++) {
+        if (fork() == 0) {
+            break;
+        }
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2', createdAtLine: 5}
+                    ]
+                },
+                explanation: "Children break immediately. Parent loops twice, creating 2 direct children."
+            },
+            // Category 12: Mixed patterns
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork();
+    if (fork() > 0) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 45, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 100, y: 45, label: 'C2', createdAtLine: 5},
+                        {parent: 'P', id: 'C3', x: 160, y: 45, label: 'C3', createdAtLine: 6},
+                        {parent: 'C1', id: 'C4', x: 25, y: 85, label: 'C4', createdAtLine: 5},
+                        {parent: 'C1', id: 'C5', x: 55, y: 85, label: 'C5', createdAtLine: 6}
+                    ]
+                },
+                explanation: "Fork 1: P,C1. Fork 2: P->C2, C1->C4. Fork 3 (parent only): P->C3, C1->C5. Total: 6 processes."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork() == 0) {
+        fork();
+    }
+    fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 50, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 150, y: 50, label: 'C2', createdAtLine: 7},
+                        {parent: 'C1', id: 'C3', x: 30, y: 85, label: 'C3', createdAtLine: 5},
+                        {parent: 'C1', id: 'C4', x: 70, y: 85, label: 'C4', createdAtLine: 7},
+                        {parent: 'C3', id: 'C5', x: 30, y: 115, label: 'C5', createdAtLine: 7}
+                    ]
+                },
+                explanation: "Fork 1 creates C1. C1 forks to create C3. Final fork: P->C2, C1->C4, C3->C5. Total: 6 processes."
+            },
+            // Category 13: Complex conditionals
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    pid_t p1 = fork();
+    pid_t p2 = fork();
+    if (p1 == 0 && p2 == 0) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 50, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 150, y: 50, label: 'C2', createdAtLine: 5},
+                        {parent: 'C1', id: 'C3', x: 50, y: 85, label: 'C3', createdAtLine: 5},
+                        {parent: 'C3', id: 'C4', x: 50, y: 115, label: 'C4', createdAtLine: 7}
+                    ]
+                },
+                explanation: "After 2 forks: P, C1, C2, C3. Only C3 has both p1==0 and p2==0, so only C3 forks again."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    pid_t p1 = fork();
+    pid_t p2 = fork();
+    if (p1 > 0 && p2 > 0) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 50, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 100, y: 50, label: 'C2', createdAtLine: 5},
+                        {parent: 'P', id: 'C3', x: 150, y: 50, label: 'C3', createdAtLine: 7},
+                        {parent: 'C1', id: 'C4', x: 50, y: 90, label: 'C4', createdAtLine: 5}
+                    ]
+                },
+                explanation: "After 2 forks: P, C1, C2, C3. Only P has both p1>0 and p2>0, so only P forks a third time."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    pid_t p1 = fork();
+    pid_t p2 = fork();
+    if (p1 == 0 || p2 == 0) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 45, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 160, y: 45, label: 'C2', createdAtLine: 5},
+                        {parent: 'C1', id: 'C3', x: 25, y: 80, label: 'C3', createdAtLine: 5},
+                        {parent: 'C1', id: 'C4', x: 55, y: 80, label: 'C4', createdAtLine: 7},
+                        {parent: 'C2', id: 'C5', x: 160, y: 80, label: 'C5', createdAtLine: 7},
+                        {parent: 'C3', id: 'C6', x: 25, y: 110, label: 'C6', createdAtLine: 7}
+                    ]
+                },
+                explanation: "After 2 forks: P, C1, C2, C3. C1, C2, and C3 all have at least one ==0, so they fork. P doesn't."
+            },
+            // Category 14: Early returns
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork() == 0) {
+        return 0;
+    }
+    fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2', createdAtLine: 7}
+                    ]
+                },
+                explanation: "First child returns immediately. Only parent reaches the second fork, creating C2."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork() > 0) {
+        return 0;
+    }
+    fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 70, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 100, y: 110, label: 'C2', createdAtLine: 7}
+                    ]
+                },
+                explanation: "Parent returns immediately. Only the first child reaches the second fork, creating a chain."
+            },
+            // Category 15: Multiple independent forks with conditions
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    pid_t p = fork();
+    if (p == 0) {
+        fork();
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 50, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 60, y: 85, label: 'C2', createdAtLine: 6},
+                        {parent: 'C1', id: 'C3', x: 140, y: 85, label: 'C3', createdAtLine: 7},
+                        {parent: 'C2', id: 'C4', x: 60, y: 115, label: 'C4', createdAtLine: 7}
+                    ]
+                },
+                explanation: "Only the child (p==0) does two forks. Parent just waits. Child creates a subtree of 4."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    pid_t p = fork();
+    if (p > 0) {
+        fork();
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 50, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 100, y: 50, label: 'C2', createdAtLine: 6},
+                        {parent: 'P', id: 'C3', x: 160, y: 50, label: 'C3', createdAtLine: 7},
+                        {parent: 'C2', id: 'C4', x: 100, y: 90, label: 'C4', createdAtLine: 7}
+                    ]
+                },
+                explanation: "Only the parent (p>0) does two forks, creating C2 and C3. C2 also forks once, creating C4."
+            },
+            // Category 16: Tricky patterns
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork() && fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2', createdAtLine: 4}
+                    ]
+                },
+                explanation: "Short-circuit AND: fork() returns 0 in child (falsy), so child doesn't execute second fork. Parent (non-zero) does."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork() || fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 70, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 100, y: 110, label: 'C2', createdAtLine: 4}
+                    ]
+                },
+                explanation: "Short-circuit OR: fork() returns non-zero in parent (truthy), so parent skips second fork. Child (0, falsy) forks."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork() && fork() && fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 55, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 100, y: 55, label: 'C2', createdAtLine: 4},
+                        {parent: 'P', id: 'C3', x: 150, y: 55, label: 'C3', createdAtLine: 4}
+                    ]
+                },
+                explanation: "Each fork's child returns 0 (falsy) and stops. Only the original parent continues all three forks."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork() || fork() || fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 45, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 100, y: 75, label: 'C2', createdAtLine: 4},
+                        {parent: 'C2', id: 'C3', x: 100, y: 105, label: 'C3', createdAtLine: 4}
+                    ]
+                },
+                explanation: "Each parent returns non-zero (truthy) and stops. Only children continue, creating a chain."
+            },
+            // Category 17: While loop patterns
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    int i = 0;
+    while (i < 2) {
+        fork();
+        i++;
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1', createdAtLine: 6},
+                        {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2', createdAtLine: 6},
+                        {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3', createdAtLine: 6}
+                    ]
+                },
+                explanation: "While loop with 2 iterations is equivalent to 2 sequential forks. Creates 4 processes."
+            },
+            // Category 18: Negation conditions
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (!fork()) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 70, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 100, y: 110, label: 'C2', createdAtLine: 5}
+                    ]
+                },
+                explanation: "!fork() is true when fork() returns 0 (in child). So only the child forks again, creating a chain."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork()) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2', createdAtLine: 5}
+                    ]
+                },
+                explanation: "fork() is truthy in parent (non-zero PID). So only parent forks again, creating 2 direct children."
+            },
+            // Category 19: Ternary operator
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork() ? fork() : 0;
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2', createdAtLine: 4}
+                    ]
+                },
+                explanation: "Ternary: parent (truthy) executes second fork. Child (0, falsy) evaluates to 0 and doesn't fork."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork() ? 0 : fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 70, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 100, y: 110, label: 'C2', createdAtLine: 4}
+                    ]
+                },
+                explanation: "Ternary: parent (truthy) evaluates to 0. Child (0, falsy) executes second fork, creating a chain."
+            },
+            // Category 20: Compound statements
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork();
+    fork();
+    if (fork() == 0) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 35, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 100, y: 35, label: 'C2', createdAtLine: 5},
+                        {parent: 'C1', id: 'C3', x: 25, y: 60, label: 'C3', createdAtLine: 5},
+                        {parent: 'P', id: 'C4', x: 160, y: 35, label: 'C4', createdAtLine: 6},
+                        {parent: 'C1', id: 'C5', x: 55, y: 60, label: 'C5', createdAtLine: 6},
+                        {parent: 'C2', id: 'C6', x: 100, y: 60, label: 'C6', createdAtLine: 6},
+                        {parent: 'C3', id: 'C7', x: 25, y: 85, label: 'C7', createdAtLine: 6},
+                        {parent: 'C4', id: 'C8', x: 160, y: 60, label: 'C8', createdAtLine: 7},
+                        {parent: 'C5', id: 'C9', x: 55, y: 85, label: 'C9', createdAtLine: 7},
+                        {parent: 'C6', id: 'C10', x: 100, y: 85, label: 'C10', createdAtLine: 7},
+                        {parent: 'C7', id: 'C11', x: 25, y: 110, label: 'C11', createdAtLine: 7}
+                    ]
+                },
+                explanation: "Fork 1: 2 procs. Fork 2: 4 procs. Fork 3: 8 procs. Fork 4 (only children of fork 3): +4 = 12 total."
+            },
+            // Additional variations to reach 50+
+            {
+                code: `#include <unistd.h>
+#include <stdio.h>
+
+int main() {
+    int x = 1;
+    if (fork() == 0) {
+        x = 2;
+    }
+    fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1', createdAtLine: 6},
+                        {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2', createdAtLine: 9},
+                        {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3', createdAtLine: 9}
+                    ]
+                },
+                explanation: "Variable assignment doesn't affect fork structure. First fork creates C1, second fork is done by both P and C1."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork();
+    fork() == 0 ? fork() : 0;
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 50, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 150, y: 50, label: 'C2', createdAtLine: 5},
+                        {parent: 'C1', id: 'C3', x: 50, y: 85, label: 'C3', createdAtLine: 5},
+                        {parent: 'C2', id: 'C4', x: 150, y: 85, label: 'C4', createdAtLine: 5},
+                        {parent: 'C3', id: 'C5', x: 50, y: 115, label: 'C5', createdAtLine: 5}
+                    ]
+                },
+                explanation: "First fork: P,C1. Ternary's first fork creates C2,C3. Only the children (fork()==0) evaluate the second fork, creating C4,C5. Total: 6 processes."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    if (fork() != 0) {
+        fork();
+    } else {
+        fork();
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 50, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 150, y: 50, label: 'C2', createdAtLine: 5},
+                        {parent: 'C1', id: 'C3', x: 35, y: 85, label: 'C3', createdAtLine: 7},
+                        {parent: 'C1', id: 'C4', x: 65, y: 85, label: 'C4', createdAtLine: 8},
+                        {parent: 'C3', id: 'C5', x: 35, y: 115, label: 'C5', createdAtLine: 8}
+                    ]
+                },
+                explanation: "Parent forks once (creates C2). Child C1 forks twice (creates C3 and C4, and C3 creates C5)."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    for (int i = 0; i < 4; i++) {
+        if (fork() == 0)
+            break;
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 40, y: 55, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 80, y: 55, label: 'C2', createdAtLine: 5},
+                        {parent: 'P', id: 'C3', x: 120, y: 55, label: 'C3', createdAtLine: 5},
+                        {parent: 'P', id: 'C4', x: 160, y: 55, label: 'C4', createdAtLine: 5}
+                    ]
+                },
+                explanation: "Each child breaks immediately. Parent loops 4 times, creating 4 direct children."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    int n = fork();
+    fork();
+    if (n == 0) {
+        fork();
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 50, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 150, y: 50, label: 'C2', createdAtLine: 5},
+                        {parent: 'C1', id: 'C3', x: 35, y: 85, label: 'C3', createdAtLine: 5},
+                        {parent: 'C1', id: 'C4', x: 65, y: 85, label: 'C4', createdAtLine: 7},
+                        {parent: 'C3', id: 'C5', x: 35, y: 115, label: 'C5', createdAtLine: 7}
+                    ]
+                },
+                explanation: "Fork 1: P,C1 (n=0 for C1). Fork 2: All fork. Fork 3: Only n==0 processes (C1 and its child C3) fork."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    pid_t p = fork();
+    if (p == 0) {
+        p = fork();
+        if (p == 0) {
+            fork();
+        }
+    }
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 45, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 100, y: 75, label: 'C2', createdAtLine: 6},
+                        {parent: 'C2', id: 'C3', x: 100, y: 105, label: 'C3', createdAtLine: 8}
+                    ]
+                },
+                explanation: "Each fork only happens in the child of the previous. Creates a linear chain of 4 processes."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    fork() + fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2', createdAtLine: 4},
+                        {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3', createdAtLine: 4}
+                    ]
+                },
+                explanation: "Both forks are evaluated (no short-circuit). This is equivalent to two sequential forks: 4 processes."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    (fork() == 0) && (fork() == 0);
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 100, y: 70, label: 'C1', createdAtLine: 4},
+                        {parent: 'C1', id: 'C2', x: 100, y: 110, label: 'C2', createdAtLine: 4}
+                    ]
+                },
+                explanation: "Parent: fork()!=0 (false for &&), stops. Child: fork()==0 (true), continues and forks again."
+            },
+            {
+                code: `#include <unistd.h>
+
+int main() {
+    (fork() > 0) && (fork() > 0);
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1', createdAtLine: 4},
+                        {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2', createdAtLine: 4}
+                    ]
+                },
+                explanation: "Parent: fork()>0 (true), continues and forks C2. Child C1: fork()>0 is false (0>0), stops."
+            },
+            {
+                code: `#include <unistd.h>
+#include <stdlib.h>
+
+int main() {
+    if (fork() == 0) {
+        exit(0);
+    }
+    fork();
+    fork();
+    return 0;
+}`,
+                correctTree: {
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: [
+                        {parent: 'P', id: 'C1', x: 50, y: 55, label: 'C1', createdAtLine: 5},
+                        {parent: 'P', id: 'C2', x: 100, y: 55, label: 'C2', createdAtLine: 8},
+                        {parent: 'P', id: 'C3', x: 150, y: 55, label: 'C3', createdAtLine: 9},
+                        {parent: 'C2', id: 'C4', x: 100, y: 90, label: 'C4', createdAtLine: 9}
+                    ]
+                },
+                explanation: "First child exits immediately. Parent does 2 more forks. C2 does one more fork. Total: 5 processes."
+            }
+        ];
+
+        // Generate distractor trees based on common misconceptions
+        function generateDistractorTrees(correctTree) {
+            const distractors = [];
+            const totalNodes = 1 + correctTree.children.length;
+
+            // Helper to compute tree structure signature (for duplicate detection)
+            function getTreeSignature(tree) {
+                const childCount = tree.children.length;
+                // Count how many children each node has
+                const parentCounts = {};
+                parentCounts['P'] = 0;
+                tree.children.forEach(c => {
+                    parentCounts[c.id] = 0;
+                });
+                tree.children.forEach(c => {
+                    parentCounts[c.parent] = (parentCounts[c.parent] || 0) + 1;
+                });
+                // Create signature: total nodes + parent structure
+                const parentSignature = Object.entries(parentCounts)
+                    .filter(([k, v]) => v > 0)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([k, v]) => v)
+                    .join(',');
+                return `${childCount + 1}:${parentSignature}`;
+            }
+
+            const correctSignature = getTreeSignature(correctTree);
+
+            // Helper to check if distractor is different from correct
+            function isDifferent(distractor) {
+                return getTreeSignature(distractor) !== correctSignature;
+            }
+
+            // Distractor 1: Different number of processes (usually ±1 or ×2)
+            if (totalNodes === 2) {
+                // Single fork - show 1 process (no fork), 3 processes, or 4 processes
+                const candidates = [
+                    // 1 process (no fork)
+                    {
+                        nodes: [{id: 'P', x: 100, y: 60, label: 'P', isParent: true}],
+                        children: []
+                    },
+                    // 3 processes flat
+                    {
+                        nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                        children: [
+                            {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1'},
+                            {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2'}
+                        ]
+                    },
+                    // 4 processes
+                    {
+                        nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                        children: [
+                            {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1'},
+                            {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2'},
+                            {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3'}
+                        ]
+                    }
+                ];
+                candidates.filter(isDifferent).forEach(c => distractors.push(c));
+            } else if (totalNodes === 3) {
+                // 3 processes - generate candidates and filter duplicates
+                const candidates = [
+                    // Flat: P -> C1, C2
+                    {
+                        nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                        children: [
+                            {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1'},
+                            {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2'}
+                        ]
+                    },
+                    // Chain: P -> C1 -> C2
+                    {
+                        nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                        children: [
+                            {parent: 'P', id: 'C1', x: 100, y: 70, label: 'C1'},
+                            {parent: 'C1', id: 'C2', x: 100, y: 110, label: 'C2'}
+                        ]
+                    },
+                    // 2 processes (one fewer)
+                    {
+                        nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                        children: [{parent: 'P', id: 'C1', x: 100, y: 90, label: 'C'}]
+                    },
+                    // 4 processes (one more)
+                    {
+                        nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                        children: [
+                            {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1'},
+                            {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2'},
+                            {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3'}
+                        ]
+                    }
+                ];
+                candidates.filter(isDifferent).forEach(c => distractors.push(c));
+            } else if (totalNodes === 4) {
+                // 4 processes - generate candidates and filter duplicates
+                const candidates = [
+                    // Standard 2-fork tree: P -> C1, C2; C1 -> C3
+                    {
+                        nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                        children: [
+                            {parent: 'P', id: 'C1', x: 50, y: 60, label: 'C1'},
+                            {parent: 'P', id: 'C2', x: 150, y: 60, label: 'C2'},
+                            {parent: 'C1', id: 'C3', x: 50, y: 100, label: 'C3'}
+                        ]
+                    },
+                    // Flat: P -> C1, C2, C3
+                    {
+                        nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                        children: [
+                            {parent: 'P', id: 'C1', x: 50, y: 55, label: 'C1'},
+                            {parent: 'P', id: 'C2', x: 100, y: 55, label: 'C2'},
+                            {parent: 'P', id: 'C3', x: 150, y: 55, label: 'C3'}
+                        ]
+                    },
+                    // Chain: P -> C1 -> C2 -> C3
+                    {
+                        nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                        children: [
+                            {parent: 'P', id: 'C1', x: 100, y: 45, label: 'C1'},
+                            {parent: 'C1', id: 'C2', x: 100, y: 75, label: 'C2'},
+                            {parent: 'C2', id: 'C3', x: 100, y: 105, label: 'C3'}
+                        ]
+                    },
+                    // 3 processes (one fewer)
+                    {
+                        nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                        children: [
+                            {parent: 'P', id: 'C1', x: 60, y: 90, label: 'C1'},
+                            {parent: 'P', id: 'C2', x: 140, y: 90, label: 'C2'}
+                        ]
+                    },
+                    // 5 processes (one more)
+                    {
+                        nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                        children: [
+                            {parent: 'P', id: 'C1', x: 40, y: 50, label: 'C1'},
+                            {parent: 'P', id: 'C2', x: 100, y: 50, label: 'C2'},
+                            {parent: 'P', id: 'C3', x: 160, y: 50, label: 'C3'},
+                            {parent: 'C1', id: 'C4', x: 40, y: 90, label: 'C4'}
+                        ]
+                    }
+                ];
+                candidates.filter(isDifferent).forEach(c => distractors.push(c));
+            } else {
+                // Generate reasonable distractors for other cases
+                const candidates = [];
+
+                // Flat structure with same count
+                candidates.push({
+                    nodes: [{id: 'P', x: 100, y: 20, label: 'P', isParent: true}],
+                    children: Array.from({length: totalNodes - 1}, (_, i) => ({
+                        parent: 'P',
+                        id: `C${i+1}`,
+                        x: 30 + (i * 140 / Math.max(1, totalNodes - 2)),
+                        y: 60,
+                        label: `C${i+1}`
+                    }))
+                });
+
+                // Chain structure with same count
+                candidates.push({
+                    nodes: [{id: 'P', x: 100, y: 10, label: 'P', isParent: true}],
+                    children: Array.from({length: totalNodes - 1}, (_, i) => ({
+                        parent: i === 0 ? 'P' : `C${i}`,
+                        id: `C${i+1}`,
+                        x: 100,
+                        y: 30 + i * 25,
+                        label: `C${i+1}`
+                    }))
+                });
+
+                // One fewer (flat)
+                const fewerCount = Math.max(1, totalNodes - 2);
+                candidates.push({
+                    nodes: [{id: 'P', x: 100, y: 30, label: 'P', isParent: true}],
+                    children: Array.from({length: fewerCount}, (_, i) => ({
+                        parent: 'P',
+                        id: `C${i+1}`,
+                        x: 50 + i * 50,
+                        y: 80,
+                        label: `C${i+1}`
+                    }))
+                });
+
+                // One more (flat)
+                candidates.push({
+                    nodes: [{id: 'P', x: 100, y: 15, label: 'P', isParent: true}],
+                    children: Array.from({length: totalNodes}, (_, i) => ({
+                        parent: 'P',
+                        id: `C${i+1}`,
+                        x: 30 + i * 35,
+                        y: 55,
+                        label: `C${i+1}`
+                    }))
+                });
+
+                candidates.filter(isDifferent).forEach(c => distractors.push(c));
+            }
+
+            return distractors.slice(0, 3);
+        }
+
+        // Syntax highlighting for code
+        function highlightCode(code) {
+            const keywords = ['int', 'if', 'else', 'for', 'while', 'return', 'break', 'void'];
+            const types = ['pid_t'];
+            const functions = ['fork', 'printf', 'exit', 'main'];
+
+            // Split into lines first
+            const lines = code.split('\n');
+
+            const highlightedLines = lines.map((line, index) => {
+                // First escape HTML entities
+                let highlighted = line
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+
+                // Handle #include directives specially
+                if (highlighted.trim().startsWith('#include')) {
+                    highlighted = highlighted.replace(
+                        /(#include)\s*(&lt;[^&]*&gt;|"[^"]*")/g,
+                        '<span class="preprocessor">$1</span> <span class="include-file">$2</span>'
+                    );
+                } else {
+                    // Regular syntax highlighting
+                    highlighted = highlighted
+                        .replace(/\/\/.*$/g, '<span class="comment">$&</span>')
+                        .replace(/"[^"]*"/g, '<span class="string">$&</span>')
+                        .replace(/\b(\d+)\b/g, '<span class="number">$1</span>');
+
+                    keywords.forEach(kw => {
+                        const regex = new RegExp(`\\b(${kw})\\b`, 'g');
+                        highlighted = highlighted.replace(regex, '<span class="keyword">$1</span>');
+                    });
+
+                    types.forEach(t => {
+                        const regex = new RegExp(`\\b(${t})\\b`, 'g');
+                        highlighted = highlighted.replace(regex, '<span class="type">$1</span>');
+                    });
+
+                    functions.forEach(fn => {
+                        const regex = new RegExp(`\\b(${fn})\\b`, 'g');
+                        highlighted = highlighted.replace(regex, '<span class="function">$1</span>');
+                    });
+                }
+
+                const lineNum = index + 1;
+                return `<span class="code-line" data-line="${lineNum}"><span class="line-number">${lineNum}</span><span class="line-content">${highlighted}</span></span>`;
+            });
+
+            return highlightedLines.join('\n');
+        }
+
+        // Draw process tree SVG
+        function drawProcessTree(tree, svgId) {
+            const svg = document.getElementById(svgId);
+            svg.innerHTML = '';
+
+            // Calculate bounds based on actual node positions
+            let maxX = 100, maxY = 50;
+            tree.nodes.forEach(node => {
+                maxX = Math.max(maxX, node.x + 20);
+                maxY = Math.max(maxY, node.y + 20);
+            });
+            tree.children.forEach(child => {
+                maxX = Math.max(maxX, child.x + 20);
+                maxY = Math.max(maxY, child.y + 20);
+            });
+
+            const width = Math.max(200, maxX);
+            const height = Math.max(130, maxY);
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+
+            // Draw links first (behind nodes)
+            tree.children.forEach(child => {
+                const parentNode = tree.nodes.find(n => n.id === child.parent) ||
+                                   tree.children.find(c => c.id === child.parent);
+                if (parentNode) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', parentNode.x);
+                    line.setAttribute('y1', parentNode.y + 12);
+                    line.setAttribute('x2', child.x);
+                    line.setAttribute('y2', child.y - 12);
+                    line.setAttribute('class', 'process-link');
+                    svg.appendChild(line);
+                }
+            });
+
+            // Draw parent node
+            tree.nodes.forEach(node => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', node.x);
+                circle.setAttribute('cy', node.y);
+                circle.setAttribute('r', 12);
+                circle.setAttribute('class', 'process-node parent gen-0');
+                svg.appendChild(circle);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', node.x);
+                text.setAttribute('y', node.y);
+                text.setAttribute('class', 'process-label');
+                text.textContent = node.label;
+                svg.appendChild(text);
+            });
+
+            // Draw child nodes
+            tree.children.forEach(child => {
+                const generation = getProcessGeneration(child.id, tree);
+                const genClass = `gen-${Math.min(generation, 4)}`; // Cap at gen-4
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', child.x);
+                circle.setAttribute('cy', child.y);
+                circle.setAttribute('r', 12);
+                circle.setAttribute('class', `process-node ${genClass}`);
+                svg.appendChild(circle);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', child.x);
+                text.setAttribute('y', child.y);
+                text.setAttribute('class', 'process-label');
+                text.textContent = child.label;
+                svg.appendChild(text);
+            });
+
+            return 1 + tree.children.length; // Return process count
+        }
+
+        // Game state
+        let currentQuestion = 0;
+        let currentExampleIndex = -1; // Track which questionBank index is currently shown
+        let correctCount = 0;
+        let incorrectCount = 0;
+        let streak = 0;
+        let answered = false;
+        let usedQuestions = new Set();
+        let shuffledQuestions = [];
+        let currentOptions = []; // Store current options for expand functionality
+        let currentExplanation = ''; // Store current explanation for Show Me button
+        let currentFlowData = null; // Store flow data for hover highlighting
+        let correctOptionIndex = -1; // Store which option is correct
+
+        // URL query parameter handling
+        function updateUrlWithExample(index) {
+            const url = new URL(window.location);
+            url.searchParams.set('example', index);
+            window.history.replaceState({}, '', url);
+        }
+
+        function getExampleFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const example = params.get('example');
+            if (example !== null) {
+                const idx = parseInt(example, 10);
+                if (!isNaN(idx) && idx >= 0 && idx < questionBank.length) {
+                    return idx;
+                }
+            }
+            return null;
+        }
+
+        // Load a specific question by index
+        function loadSpecificQuestion(index) {
+            if (index < 0 || index >= questionBank.length) {
+                console.error(`Invalid example index: ${index}. Valid range: 0-${questionBank.length - 1}`);
+                return;
+            }
+            usedQuestions.add(index);
+            loadQuestionByIndex(index);
+        }
+
+        // Shuffle array
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Initialize or reset the question pool
+        function initializeQuestions() {
+            shuffledQuestions = shuffleArray([...Array(questionBank.length).keys()]);
+            usedQuestions.clear();
+        }
+
+        // Get next question index
+        function getNextQuestionIndex() {
+            if (usedQuestions.size >= questionBank.length) {
+                // All questions used, reshuffle
+                initializeQuestions();
+            }
+
+            for (const idx of shuffledQuestions) {
+                if (!usedQuestions.has(idx)) {
+                    usedQuestions.add(idx);
+                    return idx;
+                }
+            }
+
+            // Fallback (shouldn't happen)
+            return Math.floor(Math.random() * questionBank.length);
+        }
+
+        // Load a question (gets next random question)
+        function loadQuestion() {
+            const questionIdx = getNextQuestionIndex();
+            loadQuestionByIndex(questionIdx);
+        }
+
+        // Load a specific question by index
+        function loadQuestionByIndex(questionIdx) {
+            answered = false;
+            currentExampleIndex = questionIdx;
+            const question = questionBank[questionIdx];
+
+            // Update URL with example number
+            updateUrlWithExample(questionIdx);
+
+            // Update code display
+            document.getElementById('code-display').innerHTML = highlightCode(question.code);
+            currentExplanation = question.explanation; // Store for Show Me button
+            currentFlowData = question.flowData || null; // Store flow data for hover highlighting
+
+            // Generate options (1 correct + 3 distractors)
+            const distractors = generateDistractorTrees(question.correctTree);
+            let options = [
+                { tree: question.correctTree, isCorrect: true },
+                ...distractors.map(d => ({ tree: d, isCorrect: false }))
+            ];
+            options = shuffleArray(options);
+            currentOptions = options; // Store for expand functionality
+            correctOptionIndex = options.findIndex(opt => opt.isCorrect); // Track correct option
+
+            // Update diagrams
+            const grid = document.getElementById('diagrams-grid');
+            grid.innerHTML = '';
+
+            const labels = ['A', 'B', 'C', 'D'];
+            options.forEach((opt, i) => {
+                const div = document.createElement('div');
+                div.className = 'diagram-option';
+                div.dataset.correct = opt.isCorrect;
+                div.dataset.index = i;
+
+                const label = document.createElement('div');
+                label.className = 'diagram-label';
+                label.textContent = `Option ${labels[i]}`;
+
+                // Expand button
+                const expandBtn = document.createElement('button');
+                expandBtn.className = 'expand-btn';
+                expandBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                </svg>`;
+                expandBtn.title = 'Expand view';
+                expandBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent selecting the option
+                    openModal(i, labels[i]);
+                });
+
+                const svgContainer = document.createElement('div');
+                svgContainer.className = 'diagram-svg-container';
+
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('class', 'diagram-svg');
+                svg.id = `diagram-${i}`;
+                svgContainer.appendChild(svg);
+
+                const count = document.createElement('div');
+                count.className = 'process-count';
+                const processCount = 1 + opt.tree.children.length;
+                count.textContent = `${processCount} process${processCount !== 1 ? 'es' : ''}`;
+
+                div.appendChild(label);
+                div.appendChild(expandBtn);
+                div.appendChild(svgContainer);
+                div.appendChild(count);
+
+                div.addEventListener('click', () => selectOption(div, question.explanation));
+
+                grid.appendChild(div);
+
+                // Draw the tree
+                drawProcessTree(opt.tree, `diagram-${i}`);
+            });
+
+            // Reset UI
+            document.getElementById('feedback').classList.remove('visible', 'correct', 'incorrect');
+            document.getElementById('feedback').style.background = '';
+            document.getElementById('feedback').style.color = '';
+            document.getElementById('next-btn').disabled = true;
+            document.getElementById('skip-btn').disabled = false;
+            document.getElementById('show-btn').disabled = false;
+
+            // Clear line highlights and dimming
+            document.querySelectorAll('.code-line').forEach(line => {
+                line.classList.remove('fork-highlight', 'flow-highlight', 'dimmed', 'executed');
+            });
+
+            // Update question number and example ID
+            document.getElementById('question-num').textContent = currentQuestion + 1;
+            document.getElementById('example-id').textContent = currentExampleIndex;
+
+            // Update progress bar
+            updateProgress();
+        }
+
+        // Handle option selection
+        function selectOption(element, explanation) {
+            if (answered) return;
+            answered = true;
+
+            const isCorrect = element.dataset.correct === 'true';
+            const options = document.querySelectorAll('.diagram-option');
+
+            options.forEach(opt => {
+                opt.classList.add('disabled');
+                if (opt.dataset.correct === 'true') {
+                    opt.classList.add('correct');
+                }
+            });
+
+            if (isCorrect) {
+                correctCount++;
+                streak++;
+                document.getElementById('correct-count').textContent = correctCount;
+                document.getElementById('feedback').className = 'feedback visible correct';
+                document.getElementById('feedback-text').textContent = 'Correct!';
+            } else {
+                element.classList.add('incorrect');
+                incorrectCount++;
+                streak = 0;
+                document.getElementById('incorrect-count').textContent = incorrectCount;
+                document.getElementById('feedback').className = 'feedback visible incorrect';
+                document.getElementById('feedback-text').textContent = 'Incorrect';
+            }
+
+            document.getElementById('streak-count').textContent = streak;
+            document.getElementById('feedback-explanation').textContent = explanation;
+            document.getElementById('next-btn').disabled = false;
+            document.getElementById('skip-btn').disabled = true;
+            document.getElementById('show-btn').disabled = true;
+
+            // Enable hover functionality on correct diagram
+            enableProcessHover();
+
+            // Hide instructions after first answer
+            document.getElementById('instructions').classList.add('hidden');
+        }
+
+        // Next question
+        function nextQuestion() {
+            currentQuestion++;
+            loadQuestion();
+        }
+
+        // Skip question
+        function skipQuestion() {
+            currentQuestion++;
+            loadQuestion();
+        }
+
+        // Show answer
+        function showAnswer(explanation) {
+            if (answered) return;
+            answered = true;
+
+            const options = document.querySelectorAll('.diagram-option');
+
+            options.forEach(opt => {
+                opt.classList.add('disabled');
+                if (opt.dataset.correct === 'true') {
+                    opt.classList.add('correct');
+                }
+            });
+
+            // Reset streak but don't count as incorrect
+            streak = 0;
+            document.getElementById('streak-count').textContent = streak;
+
+            document.getElementById('feedback').className = 'feedback visible';
+            document.getElementById('feedback').style.background = 'rgba(88, 166, 255, 0.15)';
+            document.getElementById('feedback').style.color = 'var(--accent-blue)';
+            document.getElementById('feedback-text').textContent = 'Answer Revealed';
+            document.getElementById('feedback-explanation').textContent = explanation;
+            document.getElementById('next-btn').disabled = false;
+            document.getElementById('skip-btn').disabled = true;
+            document.getElementById('show-btn').disabled = true;
+
+            // Enable hover functionality on correct diagram
+            enableProcessHover();
+
+            // Hide instructions after first interaction
+            document.getElementById('instructions').classList.add('hidden');
+        }
+
+        // Process hover functions
+        function enableProcessHover() {
+            const svgId = `diagram-${correctOptionIndex}`;
+            const svg = document.getElementById(svgId);
+            if (!svg) return;
+
+            const option = currentOptions[correctOptionIndex];
+            if (!option || !option.tree) return;
+
+            // Add hover hint to the correct diagram
+            const correctDiagram = document.querySelector('.diagram-option.correct');
+            if (correctDiagram && !correctDiagram.querySelector('.hover-hint')) {
+                const hint = document.createElement('div');
+                hint.className = 'hover-hint';
+                hint.textContent = 'Hover over processes';
+                correctDiagram.appendChild(hint);
+            }
+
+            // Re-draw the tree with hoverable nodes
+            drawProcessTreeWithHover(option.tree, svgId);
+        }
+
+        function drawProcessTreeWithHover(tree, svgId) {
+            const svg = document.getElementById(svgId);
+            svg.innerHTML = '';
+
+            // Calculate bounds based on actual node positions
+            let maxX = 100, maxY = 50;
+            tree.nodes.forEach(node => {
+                maxX = Math.max(maxX, node.x + 20);
+                maxY = Math.max(maxY, node.y + 20);
+            });
+            tree.children.forEach(child => {
+                maxX = Math.max(maxX, child.x + 20);
+                maxY = Math.max(maxY, child.y + 20);
+            });
+
+            const width = Math.max(200, maxX);
+            const height = Math.max(130, maxY);
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+
+            // Store line elements for highlighting
+            const lines = [];
+
+            // Draw links first (behind nodes)
+            tree.children.forEach(child => {
+                const parentNode = tree.nodes.find(n => n.id === child.parent) ||
+                                   tree.children.find(c => c.id === child.parent);
+                if (parentNode) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', parentNode.x);
+                    line.setAttribute('y1', parentNode.y + 12);
+                    line.setAttribute('x2', child.x);
+                    line.setAttribute('y2', child.y - 12);
+                    line.setAttribute('class', 'process-link');
+                    line.dataset.childId = child.id;
+                    line.dataset.parentId = parentNode.id;
+                    svg.appendChild(line);
+                    lines.push(line);
+                }
+            });
+
+            // Draw parent node with hover
+            tree.nodes.forEach(node => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', node.x);
+                circle.setAttribute('cy', node.y);
+                circle.setAttribute('r', 12);
+                circle.setAttribute('class', 'process-node parent hoverable gen-0');
+                circle.dataset.processId = node.id;
+                circle.dataset.label = node.label;
+                circle.dataset.isParent = 'true';
+                svg.appendChild(circle);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', node.x);
+                text.setAttribute('y', node.y);
+                text.setAttribute('class', 'process-label');
+                text.textContent = node.label;
+                text.style.pointerEvents = 'none';
+                svg.appendChild(text);
+
+                // Add hover listeners
+                addProcessHoverListeners(circle, node, tree, lines);
+            });
+
+            // Draw child nodes with hover
+            tree.children.forEach(child => {
+                const generation = getProcessGeneration(child.id, tree);
+                const genClass = `gen-${Math.min(generation, 4)}`;
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', child.x);
+                circle.setAttribute('cy', child.y);
+                circle.setAttribute('r', 12);
+                circle.setAttribute('class', `process-node hoverable ${genClass}`);
+                circle.dataset.processId = child.id;
+                circle.dataset.label = child.label;
+                circle.dataset.parentId = child.parent;
+                svg.appendChild(circle);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', child.x);
+                text.setAttribute('y', child.y);
+                text.setAttribute('class', 'process-label');
+                text.textContent = child.label;
+                text.style.pointerEvents = 'none';
+                svg.appendChild(text);
+
+                // Add hover listeners
+                addProcessHoverListeners(circle, child, tree, lines);
+            });
+        }
+
+        function addProcessHoverListeners(circle, process, tree, lines) {
+            const tooltip = document.getElementById('process-tooltip');
+
+            circle.addEventListener('mouseenter', (e) => {
+                // Highlight this node
+                circle.classList.add('hovered');
+
+                // Get the ancestry path
+                const ancestry = getProcessAncestry(process, tree);
+
+                // Highlight the path lines
+                lines.forEach(line => {
+                    const childId = line.dataset.childId;
+                    if (ancestry.includes(childId)) {
+                        line.classList.add('highlighted-path');
+                    }
+                });
+
+                // Highlight code lines based on createdAtLine property
+                highlightCodeFlow(process, tree);
+
+                // Show tooltip
+                const isParent = circle.dataset.isParent === 'true';
+                const tooltipTitle = document.getElementById('tooltip-title');
+                const tooltipDesc = document.getElementById('tooltip-desc');
+
+                if (isParent) {
+                    tooltipTitle.textContent = `Process ${process.label}`;
+                    tooltipDesc.textContent = 'Original parent process - starts execution at main()';
+                } else {
+                    const parentLabel = process.parent === 'P' ? 'P' : process.parent;
+                    const lineNum = process.createdAtLine || '?';
+                    tooltipTitle.textContent = `Process ${process.label}`;
+                    tooltipDesc.textContent = `Created by ${parentLabel} at line ${lineNum}`;
+                }
+
+                // Position tooltip
+                const rect = circle.getBoundingClientRect();
+                tooltip.style.left = `${rect.right + 10}px`;
+                tooltip.style.top = `${rect.top - 10}px`;
+                tooltip.classList.add('visible');
+            });
+
+            circle.addEventListener('mouseleave', () => {
+                // Remove highlights
+                circle.classList.remove('hovered');
+                lines.forEach(line => line.classList.remove('highlighted-path'));
+
+                // Clear code highlights and dimming
+                document.querySelectorAll('.code-line').forEach(line => {
+                    line.classList.remove('fork-highlight', 'flow-highlight', 'dimmed', 'executed');
+                });
+
+                // Hide tooltip
+                tooltip.classList.remove('visible');
+            });
+        }
+
+        function getProcessAncestry(process, tree) {
+            const ancestry = [];
+            let current = process;
+
+            while (current.parent) {
+                ancestry.push(current.id);
+                // Find parent
+                const parent = tree.nodes.find(n => n.id === current.parent) ||
+                              tree.children.find(c => c.id === current.parent);
+                if (!parent) break;
+                current = parent;
+            }
+
+            return ancestry;
+        }
+
+        function highlightCodeFlow(process, tree) {
+            const allLines = document.querySelectorAll('.code-line');
+
+            // Clear previous highlights
+            allLines.forEach(line => {
+                line.classList.remove('fork-highlight', 'flow-highlight', 'dimmed', 'executed');
+            });
+
+            // If this is the parent process, highlight all lines as executed
+            if (!process.createdAtLine) {
+                allLines.forEach(line => {
+                    line.classList.add('executed');
+                });
+                return;
+            }
+
+            // Dim all lines first
+            allLines.forEach(line => {
+                line.classList.add('dimmed');
+            });
+
+            // Collect all the fork lines in the ancestry (including this process's fork)
+            const forkLines = new Set();
+            forkLines.add(process.createdAtLine);
+
+            let current = process;
+            while (current.parent) {
+                const parent = tree.nodes.find(n => n.id === current.parent) ||
+                              tree.children.find(c => c.id === current.parent);
+                if (!parent) break;
+                if (parent.createdAtLine) {
+                    forkLines.add(parent.createdAtLine);
+                }
+                current = parent;
+            }
+
+            // Mark lines as executed: from start up to and including the creating fork line
+            // Also include lines between ancestor forks
+            const maxLine = process.createdAtLine;
+            allLines.forEach(line => {
+                const lineNum = parseInt(line.dataset.line);
+                if (lineNum <= maxLine) {
+                    line.classList.add('executed');
+                }
+            });
+
+            // Highlight the line that created this process (purple)
+            const forkLine = document.querySelector(`.code-line[data-line="${process.createdAtLine}"]`);
+            if (forkLine) forkLine.classList.add('fork-highlight');
+
+            // Highlight the parent's fork line (green)
+            // If parent is P, highlight "int main()" line instead
+            if (process.parent === 'P') {
+                // Find the line containing "int main()"
+                allLines.forEach(line => {
+                    if (line.textContent.includes('int main()') || line.textContent.includes('int main(void)')) {
+                        line.classList.add('flow-highlight');
+                    }
+                });
+            } else {
+                // Find the immediate parent and highlight its creation line
+                const parent = tree.children.find(c => c.id === process.parent);
+                if (parent && parent.createdAtLine && parent.createdAtLine !== process.createdAtLine) {
+                    const parentLine = document.querySelector(`.code-line[data-line="${parent.createdAtLine}"]`);
+                    if (parentLine) parentLine.classList.add('flow-highlight');
+                }
+            }
+        }
+
+        // Modal functions
+        function openModal(optionIndex, label) {
+            const option = currentOptions[optionIndex];
+            const modal = document.getElementById('modal-overlay');
+            const modalSvg = document.getElementById('modal-svg');
+
+            document.getElementById('modal-title').textContent = `Option ${label}`;
+
+            // Draw enlarged tree
+            drawProcessTreeEnlarged(option.tree, modalSvg);
+
+            const processCount = 1 + option.tree.children.length;
+            document.getElementById('modal-process-count').textContent = processCount;
+
+            modal.classList.add('visible');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.remove('visible');
+        }
+
+        function toggleInstructions() {
+            const instructions = document.getElementById('instructions');
+            instructions.classList.toggle('hidden');
+        }
+
+        // Reset all statistics
+        function resetStats() {
+            correctCount = 0;
+            incorrectCount = 0;
+            streak = 0;
+            currentQuestion = 0;
+            usedQuestions.clear();
+            initializeQuestions();
+
+            document.getElementById('correct-count').textContent = '0';
+            document.getElementById('incorrect-count').textContent = '0';
+            document.getElementById('streak-count').textContent = '0';
+            document.getElementById('question-num').textContent = '1';
+
+            updateProgress();
+            loadQuestion();
+        }
+
+        // Update progress bar
+        function updateProgress() {
+            const total = questionBank.length;
+            const seen = usedQuestions.size;
+            const percentage = (seen / total) * 100;
+
+            document.getElementById('progress-text').textContent = `${seen} of ${total} examples seen`;
+            document.getElementById('progress-fill').style.width = `${percentage}%`;
+        }
+
+        // Calculate generation depth for a process
+        function getProcessGeneration(processId, tree) {
+            if (processId === 'P') return 0;
+
+            let generation = 1;
+            let currentParent = null;
+
+            // Find the process
+            const process = tree.children.find(c => c.id === processId);
+            if (!process) return 1;
+
+            // Traverse up to P
+            currentParent = process.parent;
+            while (currentParent && currentParent !== 'P') {
+                generation++;
+                const parentProcess = tree.children.find(c => c.id === currentParent);
+                if (!parentProcess) break;
+                currentParent = parentProcess.parent;
+            }
+
+            return generation;
+        }
+
+        function drawProcessTreeEnlarged(tree, svg) {
+            svg.innerHTML = '';
+
+            // Scale factor for enlargement
+            const scaleX = 2.5;
+            const scaleY = 2.7;
+            const nodeRadius = 20;
+
+            // Calculate bounds based on actual scaled node positions
+            let maxX = 100 * scaleX, maxY = 50 * scaleY;
+            tree.nodes.forEach(node => {
+                maxX = Math.max(maxX, node.x * scaleX + nodeRadius + 10);
+                maxY = Math.max(maxY, node.y * scaleY + nodeRadius + 10);
+            });
+            tree.children.forEach(child => {
+                maxX = Math.max(maxX, child.x * scaleX + nodeRadius + 10);
+                maxY = Math.max(maxY, child.y * scaleY + nodeRadius + 10);
+            });
+
+            const width = Math.max(400, maxX);
+            const height = Math.max(300, maxY);
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+
+            // Draw links first (behind nodes)
+            tree.children.forEach(child => {
+                const parentNode = tree.nodes.find(n => n.id === child.parent) ||
+                                   tree.children.find(c => c.id === child.parent);
+                if (parentNode) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', parentNode.x * scaleX);
+                    line.setAttribute('y1', parentNode.y * scaleY + nodeRadius);
+                    line.setAttribute('x2', child.x * scaleX);
+                    line.setAttribute('y2', child.y * scaleY - nodeRadius);
+                    line.setAttribute('class', 'process-link');
+                    svg.appendChild(line);
+                }
+            });
+
+            // Draw parent node
+            tree.nodes.forEach(node => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', node.x * scaleX);
+                circle.setAttribute('cy', node.y * scaleY);
+                circle.setAttribute('r', nodeRadius);
+                circle.setAttribute('class', 'process-node parent gen-0');
+                svg.appendChild(circle);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', node.x * scaleX);
+                text.setAttribute('y', node.y * scaleY);
+                text.setAttribute('class', 'process-label');
+                text.textContent = node.label;
+                svg.appendChild(text);
+            });
+
+            // Draw child nodes
+            tree.children.forEach(child => {
+                const generation = getProcessGeneration(child.id, tree);
+                const genClass = `gen-${Math.min(generation, 4)}`;
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', child.x * scaleX);
+                circle.setAttribute('cy', child.y * scaleY);
+                circle.setAttribute('r', nodeRadius);
+                circle.setAttribute('class', `process-node ${genClass}`);
+                svg.appendChild(circle);
+
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', child.x * scaleX);
+                text.setAttribute('y', child.y * scaleY);
+                text.setAttribute('class', 'process-label');
+                text.textContent = child.label;
+                svg.appendChild(text);
+            });
+        }
+
+        // Initialize
+        document.getElementById('next-btn').addEventListener('click', nextQuestion);
+        document.getElementById('skip-btn').addEventListener('click', skipQuestion);
+        document.getElementById('show-btn').addEventListener('click', () => showAnswer(currentExplanation));
+
+        // Modal event listeners
+        document.getElementById('modal-close').addEventListener('click', closeModal);
+        document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+        document.getElementById('modal-overlay').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('modal-overlay')) {
+                closeModal();
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        initializeQuestions();
+
+        // Display total number of examples
+        document.getElementById('total-examples').textContent = questionBank.length;
+
+        // Check for example parameter in URL
+        const urlExample = getExampleFromUrl();
+        if (urlExample !== null) {
+            loadSpecificQuestion(urlExample);
+        } else {
+            loadQuestion();
+        }
+
+        // Initialize progress bar
+        updateProgress();
+    </script>
+</body>
+</html>
