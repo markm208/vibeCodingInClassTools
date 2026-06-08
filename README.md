@@ -9,3 +9,4 @@ This is a repo of different single web page visualizations of topics that I cove
 - [kmeansclustering.html](https://markm208.github.io/vibeCodingInClassTools/kmeansclustering.html)
 - [temperature-chart.html](https://markm208.github.io/vibeCodingInClassTools/temperature-chart.html)
 - [student-group-maker.html](https://markm208.github.io/vibeCodingInClassTools/student-group-maker.html)
+- [note-taking-tool.html](https://markm208.github.io/vibeCodingInClassTools/note-taking-tool.html)
